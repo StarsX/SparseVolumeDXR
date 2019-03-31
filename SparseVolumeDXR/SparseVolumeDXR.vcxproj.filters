@@ -1,0 +1,226 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{b4e99042-e419-4cca-8382-9d358162e246}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common\Header Files">
+      <UniqueIdentifier>{dc4b2476-8fe0-4ae5-bc2b-f323ed1f6b70}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common\Source Files">
+      <UniqueIdentifier>{18b6d476-e847-45d2-9623-119968c6eb94}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG">
+      <UniqueIdentifier>{c8f1f7b1-f111-4e86-a54e-5a3909ad8296}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\Core">
+      <UniqueIdentifier>{a7f8e376-64ac-4db0-b1e5-38a3aa28fd22}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\RayTracing">
+      <UniqueIdentifier>{e8f65036-cc74-4b6f-9419-f6e63442cd57}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\Core\Header Files">
+      <UniqueIdentifier>{51c05252-289c-40c6-8709-2f77d5a0920a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\Core\Source Files">
+      <UniqueIdentifier>{d0f71a5d-b363-4756-a731-7b7c11831461}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\Core\Inc">
+      <UniqueIdentifier>{dd74ccd5-91f5-4876-9b1e-c388502655ca}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\RayTracing\Header Files">
+      <UniqueIdentifier>{a6e733d7-9b40-4865-b712-06879859c96d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\RayTracing\Source Files">
+      <UniqueIdentifier>{6c3a80bb-e8e2-4ef6-aafe-de72ae1fbda7}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{aef06da7-c63a-4bfd-b055-b499e65346de}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Common\d3dx12.h">
+      <Filter>Common\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DXFramework.h">
+      <Filter>Common\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\DXFrameworkHelper.h">
+      <Filter>Common\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\StepTimer.h">
+      <Filter>Common\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Win32Application.h">
+      <Filter>Common\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSG.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGCommand.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGComputeState.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGDescriptor.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGGraphicsState.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGInputLayout.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGPipelineLayout.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGResource.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGShader.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGType.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\RayTracing\XUSGAccelerationStructure.h">
+      <Filter>XUSG\RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\RayTracing\XUSGRayTracing.h">
+      <Filter>XUSG\RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\RayTracing\XUSGRayTracingPipelineLayout.h">
+      <Filter>XUSG\RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\RayTracing\XUSGRayTracingState.h">
+      <Filter>XUSG\RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\RayTracing\XUSGRayTracingType.h">
+      <Filter>XUSG\RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\RayTracing\XUSGShaderTable.h">
+      <Filter>XUSG\RayTracing\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="stdafx.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\ObjLoader.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\SharedConst.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\SparseVolume.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="SparseVolumeDXR.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="Common\DXFramework.cpp">
+      <Filter>Common\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Win32Application.cpp">
+      <Filter>Common\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGCommand.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGComputeState.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGDescriptor.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGGraphicsState.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGInputLayout.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGPipelineLayout.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGResource.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGShader.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\RayTracing\XUSGAccelerationStructure.cpp">
+      <Filter>XUSG\RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\RayTracing\XUSGRayTracing.cpp">
+      <Filter>XUSG\RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\RayTracing\XUSGRayTracingPipelineLayout.cpp">
+      <Filter>XUSG\RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\RayTracing\XUSGRayTracingState.cpp">
+      <Filter>XUSG\RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\RayTracing\XUSGShaderTable.cpp">
+      <Filter>XUSG\RayTracing\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="stdafx.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Content\ObjLoader.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Content\SparseVolume.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="SparseVolumeDXR.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="XUSG\Core\XUSGBlend.inl">
+      <Filter>XUSG\Core\Inc</Filter>
+    </None>
+    <None Include="XUSG\Core\XUSGDepthStencil.inl">
+      <Filter>XUSG\Core\Inc</Filter>
+    </None>
+    <None Include="XUSG\Core\XUSGRasterizer.inl">
+      <Filter>XUSG\Core\Inc</Filter>
+    </None>
+    <None Include="XUSG\Core\XUSGSampler.inl">
+      <Filter>XUSG\Core\Inc</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="Content\Shaders\PSDepthPeel.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VSBasePass.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\VSScreenQuad.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\PSSparseRayCast.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+    <FxCompile Include="Content\Shaders\SparseRayCast.hlsl">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>

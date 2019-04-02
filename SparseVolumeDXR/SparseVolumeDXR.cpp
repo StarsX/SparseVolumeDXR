@@ -26,7 +26,8 @@ SparseVolumeDXR::SparseVolumeDXR(uint32_t width, uint32_t height, std::wstring n
 	m_frameIndex(0),
 	m_viewport(0.0f, 0.0f, static_cast<float>(width), static_cast<float>(height)),
 	m_scissorRect(0, 0, static_cast<long>(width), static_cast<long>(height)),
-	m_showFPS(false),
+	m_useRayTracing(false),
+	m_showFPS(true),
 	m_pausing(false),
 	m_tracking(false),
 	m_meshFileName("Media/bunny.obj"),
@@ -215,7 +216,7 @@ void SparseVolumeDXR::OnUpdate()
 	const auto eyePt = XMLoadFloat3(&m_eyePt);
 	const auto view = XMLoadFloat4x4(&m_view);
 	const auto proj = XMLoadFloat4x4(&m_proj);
-	m_sparseVolume->UpdateFrame(m_frameIndex, eyePt, view * proj);
+	m_sparseVolume->UpdateFrame(m_frameIndex, view * proj);
 }
 
 // Render the scene.
@@ -253,6 +254,9 @@ void SparseVolumeDXR::OnKeyUp(uint8_t key)
 		break;
 	case 0x70:	//case VK_F1:
 		m_showFPS = !m_showFPS;
+		break;
+	case 'R':
+		m_useRayTracing = !m_useRayTracing;
 		break;
 	}
 }
@@ -357,14 +361,14 @@ void SparseVolumeDXR::PopulateCommandList()
 	m_renderTargets[m_frameIndex].Barrier(m_commandList, D3D12_RESOURCE_STATE_RENDER_TARGET);
 
 	// Record commands.
-	const float clearColor[] = { 0.0f, 0.2f, 0.4f, 1.0f };
-	m_commandList.ClearRenderTargetView(*m_rtvTables[m_frameIndex], clearColor);
+	//const float clearColor[] = { CLEAR_COLOR, 1.0f };
+	//m_commandList.ClearRenderTargetView(*m_rtvTables[m_frameIndex], clearColor);
 	m_commandList.ClearDepthStencilView(m_depth.GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f);
 	m_commandList.ClearDepthStencilView(m_lsDepth.GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f);
 
 	// Voxelizer rendering
-	m_sparseVolume->Render(m_frameIndex, m_rtvTables[m_frameIndex], m_depth.GetDSV(), m_lsDepth.GetDSV());
-	//m_sparseVolume->RenderDXR(m_frameIndex, m_renderTargets[m_frameIndex], m_depth.GetDSV());
+	if (m_useRayTracing) m_sparseVolume->RenderDXR(m_frameIndex, m_renderTargets[m_frameIndex], m_depth.GetDSV());
+	else m_sparseVolume->Render(m_frameIndex, m_rtvTables[m_frameIndex], m_depth.GetDSV(), m_lsDepth.GetDSV());
 
 	// Indicate that the back buffer will now be used to present.
 	m_renderTargets[m_frameIndex].Barrier(m_commandList, D3D12_RESOURCE_STATE_PRESENT);

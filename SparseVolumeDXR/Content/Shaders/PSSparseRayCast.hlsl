@@ -2,7 +2,9 @@
 // By XU, Tianchen
 //--------------------------------------------------------------------------------------
 
-#include "SharedConst.h"
+#include "SparseRayCast.hlsli"
+
+#define SCREEN_TO_WORLD(xy, z)	ScreenToWorld(xy, z, g_screenToWorld)
 
 //--------------------------------------------------------------------------------------
 // Constant buffer
@@ -13,40 +15,11 @@ cbuffer cbMatrices
 	matrix	g_viewProjLS;		// Light space
 };
 
-static const min16float g_density = 1.0;
-static const float g_absorption = 1.0;
-
 //--------------------------------------------------------------------------------------
 // Textures
 //--------------------------------------------------------------------------------------
-Texture2DArray<uint>		g_txKBufDepth;		// View-screen space
-Texture2DArray<uint>		g_txKBufDepthLS;	// Light space
-
-//--------------------------------------------------------------------------------------
-// Screen space to loacal space
-//--------------------------------------------------------------------------------------
-float3 ScreenToWorld(float3 loc)
-{
-	float4 pos = mul(float4(loc, 1.0), g_screenToWorld);
-	
-	return pos.xyz / pos.w;
-}
-
-//--------------------------------------------------------------------------------------
-// Perspective clip space to view space
-//--------------------------------------------------------------------------------------
-float PrespectiveToViewZ(float z)
-{
-	return g_zNear * g_zFar / (g_zFar - z * (g_zFar - g_zNear));
-}
-
-//--------------------------------------------------------------------------------------
-// Orthographic clip space to view space
-//--------------------------------------------------------------------------------------
-float OrthoToViewZ(float z)
-{
-	return z * (g_zFarLS - g_zNearLS) + g_zNearLS;
-}
+Texture2DArray<uint>	g_txKBufDepth;		// View-screen space
+Texture2DArray<uint>	g_txKBufDepthLS;	// Light space
 
 //--------------------------------------------------------------------------------------
 // Compute light-path thickness
@@ -80,34 +53,26 @@ float LightPathThickness(float3 pos)
 }
 
 //--------------------------------------------------------------------------------------
-// Simpson rule for integral approximation
-//--------------------------------------------------------------------------------------
-min16float Simpson(min16float4 vf, float a, float b)
-{
-	return min16float(b - a) / 8.0 * (vf.x + 3.0 * (vf.y + vf.z) + vf.w);
-}
-
-//--------------------------------------------------------------------------------------
 // Rendering from sparse volume representation
 //--------------------------------------------------------------------------------------
 min16float4 main(float4 Pos : SV_POSITION) : SV_TARGET
 {
-	const uint2 loc = Pos.xy;
-	const float2 pos = loc;
+	const float2 xy = Pos.xy;
+	const uint2 index = xy;
 
 	float thickness = 0.0;
 	min16float scatter = 0.0;
 	for (uint i = 0; i < NUM_K_LAYERS >> 1; ++i)
 	{
 		// Get screen-space depths
-		const float depthFront = asfloat(g_txKBufDepth[uint3(loc, i * 2)]);
-		const float depthBack = asfloat(g_txKBufDepth[uint3(loc, i * 2 + 1)]);
+		const float depthFront = asfloat(g_txKBufDepth[uint3(index, i * 2)]);
+		const float depthBack = asfloat(g_txKBufDepth[uint3(index, i * 2 + 1)]);
 
 		if (depthFront >= 1.0 || depthBack >= 1.0) break;
 
 		// Transform to world space
-		const float3 posFront = ScreenToWorld(float3(pos, depthFront));
-		const float3 posBack = ScreenToWorld(float3(pos, depthBack));
+		const float3 posFront = SCREEN_TO_WORLD(xy, depthFront);
+		const float3 posBack = SCREEN_TO_WORLD(xy, depthBack);
 		const float3 posFMid = lerp(posFront, posBack, 1.0 / 3.0);
 		const float3 posBMid = lerp(posFront, posBack, 2.0 / 3.0);
 
@@ -129,14 +94,16 @@ min16float4 main(float4 Pos : SV_POSITION) : SV_TARGET
 		thicknessnes.w = LightPathThickness(posBack) + thickness;
 
 		// Compute transmission
-		const min16float4 transmissions = min16float4(exp(-thicknessnes * g_absorption * g_density));
+		const float4 transmissions = exp(-thicknessnes * g_absorption * g_density);
 		
 		// Integral
 		scatter += g_density * Simpson(transmissions, 0.0, thicknessSeg);
 	}
 
 	const min16float transmission = min16float(exp(-thickness * g_absorption * g_density));
-	const min16float3 result = scatter * 1.0 + 0.3;
 
-	return min16float4(sqrt(result), 1.0 - transmission);
+	min16float3 result = scatter * g_lightColor + g_ambient;
+	result = lerp(result, g_clear * g_clear, transmission);
+
+	return min16float4(sqrt(result), 1.0);
 }

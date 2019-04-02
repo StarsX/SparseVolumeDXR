@@ -2,9 +2,9 @@
 // By Stars XU Tianchen
 //--------------------------------------------------------------------------------------
 
-#include "SharedConst.h"
+#include "SparseRayCast.hlsli"
 
-//#define MAX_ANY_HIT_COUNT 4
+#define SCREEN_TO_WORLD(xy, z)	ScreenToWorld(xy, z, l_rayGenCB.ScreenToWorld)
 
 typedef RaytracingAccelerationStructure RaytracingAS;
 typedef BuiltInTriangleIntersectionAttributes TriAttributes;
@@ -25,12 +25,6 @@ struct RayGenConstants
 	float3	LightDir;
 };
 
-static const float g_density = 1.0;
-static const float g_absorption = 1.0;
-
-//static const float3 g_cornflowerBlue = { 0.392156899, 0.584313750, 0.929411829 };
-static const min16float3 g_clear = { 0.0, 0.2, 0.4 };
-
 //--------------------------------------------------------------------------------------
 // Constant buffers
 //--------------------------------------------------------------------------------------
@@ -43,32 +37,6 @@ RWTexture2D<float4>			RenderTarget	: register(u0);
 RWTexture2D<float>			ThicknessBuf	: register(u1);
 RaytracingAS				g_scene			: register(t0);
 Texture2DArray<uint>		g_txKBufDepth	: register(t1);
-
-//--------------------------------------------------------------------------------------
-// Screen space to loacal space
-//--------------------------------------------------------------------------------------
-float3 ScreenToWorld(float2 xy, float depth)
-{
-	float4 pos = mul(float4(xy, depth, 1.0), l_rayGenCB.ScreenToWorld);
-
-	return pos.xyz / pos.w;
-}
-
-//--------------------------------------------------------------------------------------
-// Perspective clip space to view space
-//--------------------------------------------------------------------------------------
-float PrespectiveToViewZ(float z)
-{
-	return g_zNear * g_zFar / (g_zFar - z * (g_zFar - g_zNear));
-}
-
-//--------------------------------------------------------------------------------------
-// Simpson rule for integral approximation
-//--------------------------------------------------------------------------------------
-float Simpson(float4 f, float a, float b)
-{
-	return (b - a) / 8.0 * (f.x + 3.0 * (f.y + f.z) + f.w);
-}
 
 //--------------------------------------------------------------------------------------
 // Compute light-path thickness
@@ -120,8 +88,8 @@ void raygenMain()
 		if (depthFront >= 1.0 || depthBack >= 1.0) break;
 
 		// Transform to world space
-		const float3 posFront = ScreenToWorld(xy, depthFront);
-		const float3 posBack = ScreenToWorld(xy, depthBack);
+		const float3 posFront = SCREEN_TO_WORLD(xy, depthFront);
+		const float3 posBack = SCREEN_TO_WORLD(xy, depthBack);
 		const float3 posFMid = lerp(posFront, posBack, 1.0 / 3.0);
 		const float3 posBMid = lerp(posFront, posBack, 2.0 / 3.0);
 
@@ -148,9 +116,9 @@ void raygenMain()
 		scatter += g_density * Simpson(transmissions, 0.0, thicknessSeg);
 	}
 
-	const float transmission = exp(-thickness * g_absorption * g_density);
+	const min16float transmission = min16float(exp(-thickness * g_absorption * g_density));
 
-	float3 result = scatter * 1.0 + 0.3;
+	min16float3 result = min16float(scatter) * g_lightColor + g_ambient;
 	result = lerp(result, g_clear * g_clear, transmission);
 
 	RenderTarget[index] = float4(sqrt(result), 1.0);

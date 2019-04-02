@@ -317,6 +317,7 @@ PostbuildCopy.bat "$(ProjectDir)..\Bin\"</Command>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
+    <None Include="Content\Shaders\SparseRayCast.hlsli" />
     <None Include="XUSG\Core\XUSGBlend.inl" />
     <None Include="XUSG\Core\XUSGDepthStencil.inl" />
     <None Include="XUSG\Core\XUSGRasterizer.inl" />

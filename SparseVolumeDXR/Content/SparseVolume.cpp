@@ -83,7 +83,7 @@ bool SparseVolume::Init(uint32_t width, uint32_t height,Format rtFormat, Format 
 	return true;
 }
 
-void SparseVolume::UpdateFrame(uint32_t frameIndex, CXMVECTOR eyePt, CXMMATRIX viewProj)
+void SparseVolume::UpdateFrame(uint32_t frameIndex, CXMMATRIX viewProj)
 {
 	// General matrices
 	//const auto world = XMMatrixScaling(m_bound.w, m_bound.w, m_bound.w) *
@@ -268,7 +268,6 @@ bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 		state.SetShader(Shader::Stage::PS, m_shaderPool.GetShader(Shader::Stage::PS, PS_SPARSE_RAYCAST));
 		state.DSSetState(Graphics::DepthStencilPreset::DEPTH_STENCIL_NONE, m_graphicsPipelineCache);
 		state.IASetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
-		state.OMSetBlendState(Graphics::BlendPreset::NON_PRE_MUL, m_graphicsPipelineCache);
 		state.OMSetRTVFormats(&rtFormat, 1);
 
 		X_RETURN(m_pipelines[SPARSE_RAYCAST], state.GetPipeline(m_graphicsPipelineCache, L"SparseRayCast"), false);

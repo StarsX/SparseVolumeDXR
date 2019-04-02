@@ -78,6 +78,7 @@ private:
 	uint64_t	m_fenceValues[FrameCount];
 
 	// Application state
+	bool		m_useRayTracing;
 	bool		m_showFPS;
 	bool		m_pausing;
 	StepTimer	m_timer;

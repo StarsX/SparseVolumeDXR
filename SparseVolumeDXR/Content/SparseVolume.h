@@ -17,7 +17,7 @@ public:
 		XUSG::Resource &vbUpload, XUSG::Resource &ibUpload, XUSG::RayTracing::Geometry &geometry,
 		const char *fileName);
 
-	void UpdateFrame(uint32_t frameIndex, DirectX::CXMVECTOR eyePt, DirectX::CXMMATRIX viewProj);
+	void UpdateFrame(uint32_t frameIndex, DirectX::CXMMATRIX viewProj);
 	void Render(uint32_t frameIndex, const XUSG::RenderTargetTable &rtvs,
 		const XUSG::Descriptor &dsv, const XUSG::Descriptor &lsDsv);
 	void RenderDXR(uint32_t frameIndex, XUSG::RenderTarget &dst, const XUSG::Descriptor &dsv);

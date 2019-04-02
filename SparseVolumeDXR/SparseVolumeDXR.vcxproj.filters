@@ -205,6 +205,9 @@
     <None Include="XUSG\Core\XUSGSampler.inl">
       <Filter>XUSG\Core\Inc</Filter>
     </None>
+    <None Include="Content\Shaders\SparseRayCast.hlsli">
+      <Filter>Shaders</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="Content\Shaders\PSDepthPeel.hlsl">

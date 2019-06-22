@@ -20,9 +20,8 @@ const wchar_t *SparseVolume::ClosestHitShaderName = L"closestHitMain";
 const wchar_t *SparseVolume::AnyHitShaderName = L"anyHitMain";
 const wchar_t *SparseVolume::MissShaderName = L"missMain";
 
-SparseVolume::SparseVolume(const RayTracing::Device &device, const RayTracing::CommandList &commandList) :
+SparseVolume::SparseVolume(const RayTracing::Device &device) :
 	m_device(device),
-	m_commandList(commandList),
 	m_instances()
 {
 	m_rayTracingPipelineCache.SetDevice(device);
@@ -38,8 +37,8 @@ SparseVolume::~SparseVolume()
 {
 }
 
-bool SparseVolume::Init(uint32_t width, uint32_t height,Format rtFormat, Format dsFormat,
-	Resource &vbUpload, Resource &ibUpload, Geometry &geometry, const char *fileName)
+bool SparseVolume::Init(const RayTracing::CommandList &commandList, uint32_t width, uint32_t height, Format rtFormat,
+	Format dsFormat, vector<Resource> &uploaders, Geometry &geometry, const char *fileName)
 {
 	m_viewport.x = static_cast<float>(width);
 	m_viewport.y = static_cast<float>(height);
@@ -47,8 +46,8 @@ bool SparseVolume::Init(uint32_t width, uint32_t height,Format rtFormat, Format 
 	// Load inputs
 	ObjLoader objLoader;
 	if (!objLoader.Import(fileName, true, true)) return false;
-	N_RETURN(createVB(objLoader.GetNumVertices(), objLoader.GetVertexStride(), objLoader.GetVertices(), vbUpload), false);
-	N_RETURN(createIB(objLoader.GetNumIndices(), objLoader.GetIndices(), ibUpload), false);
+	N_RETURN(createVB(commandList, objLoader.GetNumVertices(), objLoader.GetVertexStride(), objLoader.GetVertices(), uploaders), false);
+	N_RETURN(createIB(commandList, objLoader.GetNumIndices(), objLoader.GetIndices(), uploaders), false);
 
 	// Create pipelines
 	N_RETURN(createInputLayout(), false);
@@ -77,7 +76,7 @@ bool SparseVolume::Init(uint32_t width, uint32_t height,Format rtFormat, Format 
 	const auto world = XMMatrixIdentity();
 	XMStoreFloat4x4(&m_world, XMMatrixTranspose(world));
 
-	N_RETURN(buildAccelerationStructures(&geometry), false);
+	N_RETURN(buildAccelerationStructures(commandList, &geometry), false);
 	N_RETURN(buildShaderTables(), false);
 
 	return true;
@@ -125,52 +124,59 @@ void SparseVolume::UpdateFrame(uint32_t frameIndex, CXMMATRIX viewProj)
 		RaygenShaderName, &cbRayGen, sizeof(cbRayGen)));
 }
 
-void SparseVolume::Render(uint32_t frameIndex, const RenderTargetTable &rtvs,
-	const Descriptor &dsv, const Descriptor &lsDsv)
+void SparseVolume::Render(const RayTracing::CommandList &commandList, uint32_t frameIndex,
+	const RenderTargetTable &rtvs, const Descriptor &dsv, const Descriptor &lsDsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache.GetDescriptorPool(CBV_SRV_UAV_POOL) };
-	m_commandList.SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
+	commandList.SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
-	depthPeelLightSpace(frameIndex, lsDsv);
-	depthPeel(frameIndex, dsv);
+	depthPeelLightSpace(commandList, frameIndex, lsDsv);
+	depthPeel(commandList, frameIndex, dsv, false);
 
-	render(frameIndex, rtvs);
+	render(commandList, frameIndex, rtvs);
 }
 
-void SparseVolume::RenderDXR(uint32_t frameIndex, RenderTarget &dst, const Descriptor &dsv)
+void SparseVolume::RenderDXR(const RayTracing::CommandList &commandList,
+	uint32_t frameIndex, RenderTarget &dst, const Descriptor &dsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache.GetDescriptorPool(CBV_SRV_UAV_POOL) };
-	m_commandList.SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
+	commandList.SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
-	depthPeel(frameIndex, dsv);
-	rayTrace(frameIndex);
+	depthPeel(commandList, frameIndex, dsv);
+	rayTrace(commandList, frameIndex);
 
-	m_outputViews[frameIndex].Barrier(m_commandList, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	ResourceBarrier barriers[2];
+	auto numBarriers = m_outputViews[frameIndex].SetBarrier(barriers, D3D12_RESOURCE_STATE_COPY_SOURCE);
+	numBarriers = dst.SetBarrier(barriers, D3D12_RESOURCE_STATE_COPY_DEST, numBarriers);
 
 	TextureCopyLocation dstCopyLoc(dst.GetResource().get(), 0);
 	TextureCopyLocation srcCopyLoc(m_outputViews[frameIndex].GetResource().get(), 0);
-	dst.Barrier(m_commandList, D3D12_RESOURCE_STATE_COPY_DEST);
-	m_commandList.CopyTextureRegion(dstCopyLoc, 0, 0, 0, srcCopyLoc);
-	dst.Barrier(m_commandList, D3D12_RESOURCE_STATE_PRESENT);
+	commandList.Barrier(numBarriers, barriers);
+	commandList.CopyTextureRegion(dstCopyLoc, 0, 0, 0, srcCopyLoc);
 }
 
-bool SparseVolume::createVB(uint32_t numVert, uint32_t stride, const uint8_t *pData, Resource &vbUpload)
+bool SparseVolume::createVB(const RayTracing::CommandList &commandList, uint32_t numVert,
+	uint32_t stride, const uint8_t *pData, vector<Resource> &uploaders)
 {
 	N_RETURN(m_vertexBuffer.Create(m_device.Common, numVert, stride, D3D12_RESOURCE_FLAG_NONE,
 		D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COPY_DEST), false);
+	uploaders.push_back(nullptr);
 
-	return m_vertexBuffer.Upload(m_commandList, vbUpload, pData,
+	return m_vertexBuffer.Upload(commandList, uploaders.back(), pData, stride * numVert,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 }
 
-bool SparseVolume::createIB(uint32_t numIndices, const uint32_t *pData, Resource &ibUpload)
+bool SparseVolume::createIB(const RayTracing::CommandList &commandList, uint32_t numIndices,
+	const uint32_t *pData, vector<Resource> &uploaders)
 {
 	m_numIndices = numIndices;
+	const uint32_t byteWidth = sizeof(uint32_t) * numIndices;
 
-	N_RETURN(m_indexBuffer.Create(m_device.Common, sizeof(uint32_t) * numIndices, DXGI_FORMAT_R32_UINT,
+	N_RETURN(m_indexBuffer.Create(m_device.Common, byteWidth, DXGI_FORMAT_R32_UINT,
 		D3D12_RESOURCE_FLAG_NONE, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COPY_DEST), false);
+	uploaders.push_back(nullptr);
 
-	return m_indexBuffer.Upload(m_commandList, ibUpload, pData,
+	return m_indexBuffer.Upload(commandList, uploaders.back(), pData, byteWidth,
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 }
 
@@ -197,7 +203,8 @@ bool SparseVolume::createPipelineLayouts()
 		// Get pipeline layout
 		Util::PipelineLayout pipelineLayout;
 		pipelineLayout.SetConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), 0);
-		pipelineLayout.SetRange(SRV_UAVS, DescriptorType::UAV, 1, 0);
+		pipelineLayout.SetRange(SRV_UAVS, DescriptorType::UAV, 1, 0, 0,
+			D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
 		pipelineLayout.SetShaderStage(CONSTANTS, Shader::Stage::VS);
 		pipelineLayout.SetShaderStage(SRV_UAVS, Shader::Stage::PS);
 		X_RETURN(m_pipelineLayouts[DEPTH_PEEL_LAYOUT], pipelineLayout.GetPipelineLayout(m_pipelineLayoutCache,
@@ -357,7 +364,7 @@ bool SparseVolume::createDescriptorTables()
 	return true;
 }
 
-bool SparseVolume::buildAccelerationStructures(Geometry *geometries)
+bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList &commandList, Geometry *geometries)
 {
 	AccelerationStructure::SetFrameCount(FrameCount);
 
@@ -389,13 +396,16 @@ bool SparseVolume::buildAccelerationStructures(Geometry *geometries)
 	TopLevelAS::SetInstances(m_device, m_instances, 1, &m_bottomLevelAS, pTransform);
 
 	// Build bottom level ASs
-	m_bottomLevelAS.Build(m_commandList, m_scratch, descriptorPool, NumUAVs);
+	m_bottomLevelAS.Build(commandList, m_scratch, descriptorPool, NumUAVs);
 
 	// Build top level AS
-	m_topLevelAS.Build(m_commandList, m_scratch, m_instances, descriptorPool, NumUAVs);
+	m_topLevelAS.Build(commandList, m_scratch, m_instances, descriptorPool, NumUAVs);
 
-	m_vertexBuffer.Barrier(m_commandList, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	m_indexBuffer.Barrier(m_commandList, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+	// Set resource barriers
+	ResourceBarrier barriers[2];
+	auto numBarriers = m_vertexBuffer.SetBarrier(barriers, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	numBarriers = m_indexBuffer.SetBarrier(barriers, D3D12_RESOURCE_STATE_INDEX_BUFFER, numBarriers);
+	commandList.Barrier(numBarriers, barriers);
 
 	return true;
 }
@@ -425,102 +435,123 @@ bool SparseVolume::buildShaderTables()
 	return true;
 }
 
-void SparseVolume::depthPeel(uint32_t frameIndex, const Descriptor &dsv)
+void SparseVolume::depthPeel(const RayTracing::CommandList &commandList,
+	uint32_t frameIndex, const Descriptor &dsv, bool setPipeline)
 {
+	// Set resource barrier
+	ResourceBarrier barrier;
+	const auto numBarriers = m_depthKBuffers[frameIndex].SetBarrier(&barrier, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	commandList.Barrier(numBarriers, &barrier);
+
 	// Set descriptor tables
-	m_commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
-	m_depthKBuffers[frameIndex].Barrier(m_commandList, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	m_commandList.SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), &m_worldViewProj);
-	m_commandList.SetGraphicsDescriptorTable(SRV_UAVS, m_uavTables[UAV_TABLE_KBUFFER][frameIndex]);
+	commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
+	commandList.SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), &m_worldViewProj);
+	commandList.SetGraphicsDescriptorTable(SRV_UAVS, m_uavTables[UAV_TABLE_KBUFFER][frameIndex]);
 
 	// Set pipeline state
-	m_commandList.SetPipelineState(m_pipelines[DEPTH_PEEL]);
+	if (setPipeline) commandList.SetPipelineState(m_pipelines[DEPTH_PEEL]);
 
 	// Set viewport
 	Viewport viewport(0.0f, 0.0f, m_viewport.x, m_viewport.y);
 	RectRange scissorRect(0, 0, static_cast<long>(m_viewport.x), static_cast<long>(m_viewport.y));
-	m_commandList.RSSetViewports(1, &viewport);
-	m_commandList.RSSetScissorRects(1, &scissorRect);
+	commandList.RSSetViewports(1, &viewport);
+	commandList.RSSetScissorRects(1, &scissorRect);
 
 	const auto maxDepth = 1.0f;
-	m_commandList.OMSetRenderTargets(0, nullptr, &dsv);
-	m_commandList.ClearUnorderedAccessViewUint(*m_uavTables[UAV_TABLE_KBUFFER][frameIndex], m_depthKBuffers[frameIndex].GetUAV(),
+	commandList.OMSetRenderTargets(0, nullptr, &dsv);
+	commandList.ClearUnorderedAccessViewUint(*m_uavTables[UAV_TABLE_KBUFFER][frameIndex], m_depthKBuffers[frameIndex].GetUAV(),
 		m_depthKBuffers[frameIndex].GetResource(), XMVECTORU32{ reinterpret_cast<const uint32_t&>(maxDepth) }.u);
 
 	// Record commands.
-	m_commandList.IASetVertexBuffers(0, 1, &m_vertexBuffer.GetVBV());
-	m_commandList.IASetIndexBuffer(m_indexBuffer.GetIBV());
-	m_commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	m_commandList.DrawIndexed(m_numIndices, 1, 0, 0, 0);
+	commandList.IASetVertexBuffers(0, 1, &m_vertexBuffer.GetVBV());
+	commandList.IASetIndexBuffer(m_indexBuffer.GetIBV());
+	commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList.DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
-void SparseVolume::depthPeelLightSpace(uint32_t frameIndex, const Descriptor &dsv)
+void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList &commandList,
+	uint32_t frameIndex, const Descriptor &dsv)
 {
+	// Set resource barrier
+	ResourceBarrier barrier;
+	const auto numBarriers = m_lsDepthKBuffers[frameIndex].SetBarrier(&barrier, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	commandList.Barrier(numBarriers, &barrier);
+
 	// Set descriptor tables
-	m_commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
-	m_lsDepthKBuffers[frameIndex].Barrier(m_commandList, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	m_commandList.SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), &m_worldViewProjLS);
-	m_commandList.SetGraphicsDescriptorTable(SRV_UAVS, m_uavTables[UAV_TABLE_LS_KBUFFER][frameIndex]);
+	commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
+	
+	commandList.SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), &m_worldViewProjLS);
+	commandList.SetGraphicsDescriptorTable(SRV_UAVS, m_uavTables[UAV_TABLE_LS_KBUFFER][frameIndex]);
 
 	// Set pipeline state
-	m_commandList.SetPipelineState(m_pipelines[DEPTH_PEEL]);
+	commandList.SetPipelineState(m_pipelines[DEPTH_PEEL]);
 
 	// Set viewport
 	Viewport viewport(0.0f, 0.0f, static_cast<float>(SHADOW_MAP_SIZE), static_cast<float>(SHADOW_MAP_SIZE));
 	RectRange scissorRect(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
-	m_commandList.RSSetViewports(1, &viewport);
-	m_commandList.RSSetScissorRects(1, &scissorRect);
+	commandList.RSSetViewports(1, &viewport);
+	commandList.RSSetScissorRects(1, &scissorRect);
 
 	const auto maxDepth = 1.0f;
-	m_commandList.OMSetRenderTargets(0, nullptr, &dsv);
-	m_commandList.ClearUnorderedAccessViewUint(*m_uavTables[UAV_TABLE_LS_KBUFFER][frameIndex], m_lsDepthKBuffers[frameIndex].GetUAV(),
+	commandList.OMSetRenderTargets(0, nullptr, &dsv);
+	commandList.ClearUnorderedAccessViewUint(*m_uavTables[UAV_TABLE_LS_KBUFFER][frameIndex], m_lsDepthKBuffers[frameIndex].GetUAV(),
 		m_lsDepthKBuffers[frameIndex].GetResource(), XMVECTORU32{ reinterpret_cast<const uint32_t&>(maxDepth) }.u);
 
 	// Record commands.
-	m_commandList.IASetVertexBuffers(0, 1, &m_vertexBuffer.GetVBV());
-	m_commandList.IASetIndexBuffer(m_indexBuffer.GetIBV());
-	m_commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-	m_commandList.DrawIndexed(m_numIndices, 1, 0, 0, 0);
+	commandList.IASetVertexBuffers(0, 1, &m_vertexBuffer.GetVBV());
+	commandList.IASetIndexBuffer(m_indexBuffer.GetIBV());
+	commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList.DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
-void SparseVolume::render(uint32_t frameIndex, const RenderTargetTable &rtvs)
+void SparseVolume::render(const RayTracing::CommandList &commandList,
+	uint32_t frameIndex, const RenderTargetTable &rtvs)
 {
+	// Set resource barriers
+	ResourceBarrier barriers[2];
+	auto numBarriers = m_depthKBuffers[frameIndex].SetBarrier(barriers, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
+	numBarriers = m_lsDepthKBuffers[frameIndex].SetBarrier(barriers, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, numBarriers);
+	commandList.Barrier(numBarriers, barriers);
+
 	// Set descriptor tables
-	m_commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT]);
-	m_depthKBuffers[frameIndex].Barrier(m_commandList, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	m_lsDepthKBuffers[frameIndex].Barrier(m_commandList, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	m_commandList.SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(PerObjConstants), &m_cbPerObject);
-	m_commandList.SetGraphicsDescriptorTable(SRV_UAVS, m_srvTables[frameIndex]);
+	commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT]);
+	
+	commandList.SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(PerObjConstants), &m_cbPerObject);
+	commandList.SetGraphicsDescriptorTable(SRV_UAVS, m_srvTables[frameIndex]);
 
 	// Set pipeline state
-	m_commandList.SetPipelineState(m_pipelines[SPARSE_RAYCAST]);
+	commandList.SetPipelineState(m_pipelines[SPARSE_RAYCAST]);
 
 	// Set viewport
 	Viewport viewport(0.0f, 0.0f, m_viewport.x, m_viewport.y);
 	RectRange scissorRect(0, 0, static_cast<long>(m_viewport.x), static_cast<long>(m_viewport.y));
-	m_commandList.RSSetViewports(1, &viewport);
-	m_commandList.RSSetScissorRects(1, &scissorRect);
+	commandList.RSSetViewports(1, &viewport);
+	commandList.RSSetScissorRects(1, &scissorRect);
 
-	m_commandList.OMSetRenderTargets(1, rtvs, nullptr);
+	commandList.OMSetRenderTargets(1, rtvs, nullptr);
 
 	// Record commands.
-	m_commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
-	m_commandList.Draw(3, 1, 0, 0);
+	commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	commandList.Draw(3, 1, 0, 0);
 }
 
-void SparseVolume::rayTrace(uint32_t frameIndex)
+void SparseVolume::rayTrace(const RayTracing::CommandList &commandList, uint32_t frameIndex)
 {
-	// Set descriptor tables
-	m_commandList.SetComputePipelineLayout(m_pipelineLayouts[GLOBAL_LAYOUT]);
-	m_outputViews[frameIndex].Barrier(m_commandList, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
-	m_commandList.SetComputeDescriptorTable(OUTPUT_VIEW, m_uavTables[UAV_TABLE_OUT_VIEW][frameIndex]);
-	m_commandList.SetTopLevelAccelerationStructure(ACCELERATION_STRUCTURE, m_topLevelAS);
-	m_commandList.SetComputeDescriptorTable(DEPTH_K_BUFFERS, m_srvTables[frameIndex]);
+	// Set resource barrier
+	ResourceBarrier barrier;
+	const auto numBarriers = m_outputViews[frameIndex].SetBarrier(&barrier, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	commandList.Barrier(numBarriers, &barrier);
 
-	m_commandList.ClearUnorderedAccessViewFloat(*m_uavTables[UAV_TABLE_THICKNESS][frameIndex], m_thicknesses[frameIndex].GetUAV(),
+	// Set descriptor tables
+	commandList.SetComputePipelineLayout(m_pipelineLayouts[GLOBAL_LAYOUT]);
+	commandList.SetComputeDescriptorTable(OUTPUT_VIEW, m_uavTables[UAV_TABLE_OUT_VIEW][frameIndex]);
+	commandList.SetTopLevelAccelerationStructure(ACCELERATION_STRUCTURE, m_topLevelAS);
+	commandList.SetComputeDescriptorTable(DEPTH_K_BUFFERS, m_srvTables[frameIndex]);
+
+	commandList.ClearUnorderedAccessViewFloat(*m_uavTables[UAV_TABLE_THICKNESS][frameIndex], m_thicknesses[frameIndex].GetUAV(),
 		m_thicknesses[frameIndex].GetResource(), XMVECTORF32{ 0.0f }.f);
 
 	// Fallback layer has no depth
-	m_commandList.DispatchRays(m_rayTracingPipeline, (uint32_t)m_viewport.x, (uint32_t)m_viewport.y, 1,
+	commandList.DispatchRays(m_rayTracingPipeline, (uint32_t)m_viewport.x, (uint32_t)m_viewport.y, 1,
 		m_hitGroupShaderTable, m_missShaderTable, m_rayGenShaderTables[frameIndex]);
 }

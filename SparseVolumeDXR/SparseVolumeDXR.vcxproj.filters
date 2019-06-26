@@ -37,9 +37,6 @@
     <Filter Include="XUSG\Core\Source Files">
       <UniqueIdentifier>{d0f71a5d-b363-4756-a731-7b7c11831461}</UniqueIdentifier>
     </Filter>
-    <Filter Include="XUSG\Core\Inc">
-      <UniqueIdentifier>{dd74ccd5-91f5-4876-9b1e-c388502655ca}</UniqueIdentifier>
-    </Filter>
     <Filter Include="XUSG\RayTracing\Header Files">
       <UniqueIdentifier>{a6e733d7-9b40-4865-b712-06879859c96d}</UniqueIdentifier>
     </Filter>
@@ -48,6 +45,9 @@
     </Filter>
     <Filter Include="Shaders">
       <UniqueIdentifier>{aef06da7-c63a-4bfd-b055-b499e65346de}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\Core\Source Files\Inc">
+      <UniqueIdentifier>{dd74ccd5-91f5-4876-9b1e-c388502655ca}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -129,6 +129,12 @@
     <ClInclude Include="SparseVolumeDXR.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Common\dxcapi.h">
+      <Filter>Common\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Core\XUSGReflector.h">
+      <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Common\DXFramework.cpp">
@@ -191,19 +197,22 @@
     <ClCompile Include="SparseVolumeDXR.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="XUSG\Core\XUSGReflector.cpp">
+      <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="XUSG\Core\XUSGBlend.inl">
-      <Filter>XUSG\Core\Inc</Filter>
+      <Filter>XUSG\Core\Source Files\Inc</Filter>
     </None>
     <None Include="XUSG\Core\XUSGDepthStencil.inl">
-      <Filter>XUSG\Core\Inc</Filter>
+      <Filter>XUSG\Core\Source Files\Inc</Filter>
     </None>
     <None Include="XUSG\Core\XUSGRasterizer.inl">
-      <Filter>XUSG\Core\Inc</Filter>
+      <Filter>XUSG\Core\Source Files\Inc</Filter>
     </None>
     <None Include="XUSG\Core\XUSGSampler.inl">
-      <Filter>XUSG\Core\Inc</Filter>
+      <Filter>XUSG\Core\Source Files\Inc</Filter>
     </None>
     <None Include="Content\Shaders\SparseRayCast.hlsli">
       <Filter>Shaders</Filter>

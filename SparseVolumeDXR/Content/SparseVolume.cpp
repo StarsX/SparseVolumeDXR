@@ -14,13 +14,13 @@ using namespace DirectX;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
-const wchar_t *SparseVolume::HitGroupName = L"hitGroup";
-const wchar_t *SparseVolume::RaygenShaderName = L"raygenMain";
-const wchar_t *SparseVolume::ClosestHitShaderName = L"closestHitMain";
-const wchar_t *SparseVolume::AnyHitShaderName = L"anyHitMain";
-const wchar_t *SparseVolume::MissShaderName = L"missMain";
+const wchar_t* SparseVolume::HitGroupName = L"hitGroup";
+const wchar_t* SparseVolume::RaygenShaderName = L"raygenMain";
+const wchar_t* SparseVolume::ClosestHitShaderName = L"closestHitMain";
+const wchar_t* SparseVolume::AnyHitShaderName = L"anyHitMain";
+const wchar_t* SparseVolume::MissShaderName = L"missMain";
 
-SparseVolume::SparseVolume(const RayTracing::Device &device) :
+SparseVolume::SparseVolume(const RayTracing::Device& device) :
 	m_device(device),
 	m_instances()
 {
@@ -37,8 +37,8 @@ SparseVolume::~SparseVolume()
 {
 }
 
-bool SparseVolume::Init(const RayTracing::CommandList &commandList, uint32_t width, uint32_t height, Format rtFormat,
-	Format dsFormat, vector<Resource> &uploaders, Geometry &geometry, const char *fileName)
+bool SparseVolume::Init(const RayTracing::CommandList& commandList, uint32_t width, uint32_t height, Format rtFormat,
+	Format dsFormat, vector<Resource>& uploaders, Geometry& geometry, const char* fileName)
 {
 	m_viewport.x = static_cast<float>(width);
 	m_viewport.y = static_cast<float>(height);
@@ -59,16 +59,16 @@ bool SparseVolume::Init(const RayTracing::CommandList &commandList, uint32_t wid
 	m_bound = XMFLOAT4(center.x, center.y, center.z, objLoader.GetRadius());
 
 	// Create output grids and build acceleration structures
-	for (auto &kBuffer : m_depthKBuffers)
+	for (auto& kBuffer : m_depthKBuffers)
 		N_RETURN(kBuffer.Create(m_device.Common, width, height, DXGI_FORMAT_R32_UINT, NUM_K_LAYERS,
 			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), false);
-	for (auto &kBuffer : m_lsDepthKBuffers)
+	for (auto& kBuffer : m_lsDepthKBuffers)
 		N_RETURN(kBuffer.Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, DXGI_FORMAT_R32_UINT, NUM_K_LAYERS,
 			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), false);
-	for (auto &outView : m_outputViews)
+	for (auto& outView : m_outputViews)
 		N_RETURN(outView.Create(m_device.Common, width, height, rtFormat, 1,
 			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), false);
-	for (auto &thickness : m_thicknesses)
+	for (auto& thickness : m_thicknesses)
 		N_RETURN(thickness.Create(m_device.Common, width, height, DXGI_FORMAT_R32_FLOAT, 1,
 			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), false);
 
@@ -101,7 +101,7 @@ void SparseVolume::UpdateFrame(uint32_t frameIndex, CXMMATRIX viewProj)
 	const auto worldViewProjLS = world * viewProjLS;
 	XMStoreFloat4x4(&m_cbPerObject.ViewProjLS, XMMatrixTranspose(viewProjLS));
 	XMStoreFloat4x4(&m_worldViewProjLS, XMMatrixTranspose(worldViewProjLS));
-	
+
 	// Screen space matrices
 	const auto toScreen = XMMATRIX
 	(
@@ -124,8 +124,8 @@ void SparseVolume::UpdateFrame(uint32_t frameIndex, CXMMATRIX viewProj)
 		RaygenShaderName, &cbRayGen, sizeof(cbRayGen)));
 }
 
-void SparseVolume::Render(const RayTracing::CommandList &commandList, uint32_t frameIndex,
-	const RenderTargetTable &rtvs, const Descriptor &dsv, const Descriptor &lsDsv)
+void SparseVolume::Render(const RayTracing::CommandList& commandList, uint32_t frameIndex,
+	const RenderTargetTable& rtvs, const Descriptor& dsv, const Descriptor& lsDsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache.GetDescriptorPool(CBV_SRV_UAV_POOL) };
 	commandList.SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
@@ -136,8 +136,8 @@ void SparseVolume::Render(const RayTracing::CommandList &commandList, uint32_t f
 	render(commandList, frameIndex, rtvs);
 }
 
-void SparseVolume::RenderDXR(const RayTracing::CommandList &commandList,
-	uint32_t frameIndex, RenderTarget &dst, const Descriptor &dsv)
+void SparseVolume::RenderDXR(const RayTracing::CommandList& commandList,
+	uint32_t frameIndex, RenderTarget& dst, const Descriptor& dsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache.GetDescriptorPool(CBV_SRV_UAV_POOL) };
 	commandList.SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
@@ -155,8 +155,8 @@ void SparseVolume::RenderDXR(const RayTracing::CommandList &commandList,
 	commandList.CopyTextureRegion(dstCopyLoc, 0, 0, 0, srcCopyLoc);
 }
 
-bool SparseVolume::createVB(const RayTracing::CommandList &commandList, uint32_t numVert,
-	uint32_t stride, const uint8_t *pData, vector<Resource> &uploaders)
+bool SparseVolume::createVB(const RayTracing::CommandList& commandList, uint32_t numVert,
+	uint32_t stride, const uint8_t* pData, vector<Resource>& uploaders)
 {
 	N_RETURN(m_vertexBuffer.Create(m_device.Common, numVert, stride, D3D12_RESOURCE_FLAG_NONE,
 		D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COPY_DEST), false);
@@ -166,8 +166,8 @@ bool SparseVolume::createVB(const RayTracing::CommandList &commandList, uint32_t
 		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
 }
 
-bool SparseVolume::createIB(const RayTracing::CommandList &commandList, uint32_t numIndices,
-	const uint32_t *pData, vector<Resource> &uploaders)
+bool SparseVolume::createIB(const RayTracing::CommandList& commandList, uint32_t numIndices,
+	const uint32_t* pData, vector<Resource>& uploaders)
 {
 	m_numIndices = numIndices;
 	const uint32_t byteWidth = sizeof(uint32_t) * numIndices;
@@ -364,7 +364,7 @@ bool SparseVolume::createDescriptorTables()
 	return true;
 }
 
-bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList &commandList, Geometry *geometries)
+bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList& commandList, Geometry* geometries)
 {
 	AccelerationStructure::SetFrameCount(FrameCount);
 
@@ -389,10 +389,10 @@ bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList &co
 
 	// Get descriptor pool and create descriptor tables
 	N_RETURN(createDescriptorTables(), false);
-	const auto &descriptorPool = m_descriptorTableCache.GetDescriptorPool(CBV_SRV_UAV_POOL);
+	const auto& descriptorPool = m_descriptorTableCache.GetDescriptorPool(CBV_SRV_UAV_POOL);
 
 	// Set instance
-	float *const pTransform[] = { reinterpret_cast<float*>(&m_world) };
+	float* const pTransform[] = { reinterpret_cast<float*>(&m_world) };
 	TopLevelAS::SetInstances(m_device, m_instances, 1, &m_bottomLevelAS, pTransform);
 
 	// Build bottom level ASs
@@ -435,8 +435,8 @@ bool SparseVolume::buildShaderTables()
 	return true;
 }
 
-void SparseVolume::depthPeel(const RayTracing::CommandList &commandList,
-	uint32_t frameIndex, const Descriptor &dsv, bool setPipeline)
+void SparseVolume::depthPeel(const RayTracing::CommandList& commandList,
+	uint32_t frameIndex, const Descriptor& dsv, bool setPipeline)
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
@@ -469,8 +469,8 @@ void SparseVolume::depthPeel(const RayTracing::CommandList &commandList,
 	commandList.DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
-void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList &commandList,
-	uint32_t frameIndex, const Descriptor &dsv)
+void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList& commandList,
+	uint32_t frameIndex, const Descriptor& dsv)
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
@@ -479,7 +479,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList &commandLis
 
 	// Set descriptor tables
 	commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
-	
+
 	commandList.SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), &m_worldViewProjLS);
 	commandList.SetGraphicsDescriptorTable(SRV_UAVS, m_uavTables[UAV_TABLE_LS_KBUFFER][frameIndex]);
 
@@ -504,8 +504,8 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList &commandLis
 	commandList.DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
-void SparseVolume::render(const RayTracing::CommandList &commandList,
-	uint32_t frameIndex, const RenderTargetTable &rtvs)
+void SparseVolume::render(const RayTracing::CommandList& commandList,
+	uint32_t frameIndex, const RenderTargetTable& rtvs)
 {
 	// Set resource barriers
 	ResourceBarrier barriers[2];
@@ -515,7 +515,7 @@ void SparseVolume::render(const RayTracing::CommandList &commandList,
 
 	// Set descriptor tables
 	commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT]);
-	
+
 	commandList.SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(PerObjConstants), &m_cbPerObject);
 	commandList.SetGraphicsDescriptorTable(SRV_UAVS, m_srvTables[frameIndex]);
 
@@ -535,7 +535,7 @@ void SparseVolume::render(const RayTracing::CommandList &commandList,
 	commandList.Draw(3, 1, 0, 0);
 }
 
-void SparseVolume::rayTrace(const RayTracing::CommandList &commandList, uint32_t frameIndex)
+void SparseVolume::rayTrace(const RayTracing::CommandList& commandList, uint32_t frameIndex)
 {
 	// Set resource barrier
 	ResourceBarrier barrier;

@@ -103,7 +103,7 @@ void SparseVolumeDXR::LoadPipeline()
 		nullptr,
 		nullptr,
 		&swapChain
-		));
+	));
 
 	// This sample does not support fullscreen transitions.
 	ThrowIfFailed(factory->MakeWindowAssociation(Win32Application::GetHwnd(), DXGI_MWA_NO_ALT_ENTER));
@@ -155,7 +155,7 @@ void SparseVolumeDXR::LoadAssets()
 
 	// Close the command list and execute it to begin the initial GPU setup.
 	ThrowIfFailed(m_commandList.Close());
-	ID3D12CommandList *const ppCommandLists[] = { m_commandList.GetCommandList().get() };
+	ID3D12CommandList* const ppCommandLists[] = { m_commandList.GetCommandList().get() };
 	m_commandQueue->ExecuteCommandLists(static_cast<uint32_t>(size(ppCommandLists)), ppCommandLists);
 
 	// Create synchronization objects and wait until assets have been uploaded to the GPU.
@@ -214,7 +214,7 @@ void SparseVolumeDXR::OnRender()
 	PopulateCommandList();
 
 	// Execute the command list.
-	ID3D12CommandList *const ppCommandLists[] = { m_commandList.GetCommandList().get() };
+	ID3D12CommandList* const ppCommandLists[] = { m_commandList.GetCommandList().get() };
 	m_commandQueue->ExecuteCommandLists(static_cast<uint32_t>(size(ppCommandLists)), ppCommandLists);
 
 	// Present the frame.
@@ -311,7 +311,7 @@ void SparseVolumeDXR::OnMouseLeave()
 	m_tracking = false;
 }
 
-void SparseVolumeDXR::ParseCommandLineArgs(wchar_t *argv[], int argc)
+void SparseVolumeDXR::ParseCommandLineArgs(wchar_t* argv[], int argc)
 {
 	wstring_convert<codecvt_utf8<wchar_t>> converter;
 	DXFramework::ParseCommandLineArgs(argv, argc);
@@ -400,7 +400,7 @@ void SparseVolumeDXR::MoveToNextFrame()
 	m_fenceValues[m_frameIndex] = currentFenceValue + 1;
 }
 
-double SparseVolumeDXR::CalculateFrameStats(float *pTimeStep)
+double SparseVolumeDXR::CalculateFrameStats(float* pTimeStep)
 {
 	static int frameCnt = 0;
 	static double elapsedTime = 0.0;
@@ -425,7 +425,7 @@ double SparseVolumeDXR::CalculateFrameStats(float *pTimeStep)
 		SetCustomWindowText(windowText.str().c_str());
 	}
 
-	if (pTimeStep) *pTimeStep = static_cast<float>(totalTime - previousTime);
+	if (pTimeStep)* pTimeStep = static_cast<float>(totalTime - previousTime);
 	previousTime = totalTime;
 
 	return totalTime;
@@ -438,7 +438,7 @@ double SparseVolumeDXR::CalculateFrameStats(float *pTimeStep)
 // Enable experimental features required for compute-based raytracing fallback.
 // This will set active D3D12 devices to DEVICE_REMOVED state.
 // Returns bool whether the call succeeded and the device supports the feature.
-inline bool EnableComputeRaytracingFallback(IDXGIAdapter1 *adapter)
+inline bool EnableComputeRaytracingFallback(IDXGIAdapter1* adapter)
 {
 	ComPtr<ID3D12Device> testDevice;
 	UUID experimentalFeatures[] = { D3D12ExperimentalShaderModels };
@@ -448,7 +448,7 @@ inline bool EnableComputeRaytracingFallback(IDXGIAdapter1 *adapter)
 }
 
 // Returns bool whether the device supports DirectX Raytracing tier.
-inline bool IsDirectXRaytracingSupported(IDXGIAdapter1 *adapter)
+inline bool IsDirectXRaytracingSupported(IDXGIAdapter1* adapter)
 {
 	ComPtr<ID3D12Device> testDevice;
 	D3D12_FEATURE_DATA_D3D12_OPTIONS5 featureSupportData = {};
@@ -458,7 +458,7 @@ inline bool IsDirectXRaytracingSupported(IDXGIAdapter1 *adapter)
 		&& featureSupportData.RaytracingTier != D3D12_RAYTRACING_TIER_NOT_SUPPORTED;
 }
 
-void SparseVolumeDXR::EnableDirectXRaytracing(IDXGIAdapter1 *adapter)
+void SparseVolumeDXR::EnableDirectXRaytracing(IDXGIAdapter1* adapter)
 {
 	// Fallback Layer uses an experimental feature and needs to be enabled before creating a D3D12 device.
 	bool isFallbackSupported = EnableComputeRaytracingFallback(adapter);

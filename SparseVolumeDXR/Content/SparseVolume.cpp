@@ -7,8 +7,6 @@
 #include "ObjLoader.h"
 #include "SparseVolume.h"
 
-#define SizeOfInUint32(obj) ((sizeof(obj) - 1) / sizeof(uint32_t) + 1)
-
 using namespace std;
 using namespace DirectX;
 using namespace XUSG;

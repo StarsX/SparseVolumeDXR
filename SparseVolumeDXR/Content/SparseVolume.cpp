@@ -36,10 +36,11 @@ SparseVolume::~SparseVolume()
 }
 
 bool SparseVolume::Init(const RayTracing::CommandList& commandList, uint32_t width, uint32_t height, Format rtFormat,
-	Format dsFormat, vector<Resource>& uploaders, Geometry& geometry, const char* fileName)
+	Format dsFormat, vector<Resource>& uploaders, Geometry& geometry, const char* fileName, const XMFLOAT4& posScale)
 {
 	m_viewport.x = static_cast<float>(width);
 	m_viewport.y = static_cast<float>(height);
+	m_posScale = posScale;
 
 	// Load inputs
 	ObjLoader objLoader;
@@ -85,14 +86,15 @@ void SparseVolume::UpdateFrame(uint32_t frameIndex, CXMMATRIX viewProj)
 	// General matrices
 	//const auto world = XMMatrixScaling(m_bound.w, m_bound.w, m_bound.w) *
 		//XMMatrixTranslation(m_bound.x, m_bound.y, m_bound.z);
-	const auto world = XMMatrixIdentity();
+	const auto world = XMMatrixScaling(m_posScale.w, m_posScale.w, m_posScale.w) *
+		XMMatrixTranslation(m_posScale.x, m_posScale.y, m_posScale.z);
 	const auto worldViewProj = world * viewProj;
 	XMStoreFloat4x4(&m_world, XMMatrixTranspose(world));
 	XMStoreFloat4x4(&m_worldViewProj, XMMatrixTranspose(worldViewProj));
 
 	// Light-space matrices
 	const auto focusPt = XMLoadFloat4(&m_bound);
-	const auto lightPt = XMVectorSet(10.0f, 45.0f, 75.0f, 0.0f) + focusPt;
+	const auto lightPt = XMVectorSet(-10.0f, 45.0f, -75.0f, 0.0f) + focusPt;
 	const auto viewLS = XMMatrixLookAtLH(lightPt, focusPt, XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
 	const auto projLS = XMMatrixOrthographicLH(m_bound.w * 3.0f, m_bound.w * 3.0f, g_zNearLS, g_zFarLS);
 	const auto viewProjLS = viewLS * projLS;
@@ -123,7 +125,7 @@ void SparseVolume::UpdateFrame(uint32_t frameIndex, CXMMATRIX viewProj)
 }
 
 void SparseVolume::Render(const RayTracing::CommandList& commandList, uint32_t frameIndex,
-	const RenderTargetTable& rtvs, const Descriptor& dsv, const Descriptor& lsDsv)
+	const Descriptor& rtv, const Descriptor& dsv, const Descriptor& lsDsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache.GetDescriptorPool(CBV_SRV_UAV_POOL) };
 	commandList.SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
@@ -131,7 +133,7 @@ void SparseVolume::Render(const RayTracing::CommandList& commandList, uint32_t f
 	depthPeelLightSpace(commandList, frameIndex, lsDsv);
 	depthPeel(commandList, frameIndex, dsv, false);
 
-	render(commandList, frameIndex, rtvs);
+	render(commandList, frameIndex, rtv);
 }
 
 void SparseVolume::RenderDXR(const RayTracing::CommandList& commandList,
@@ -503,7 +505,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList& commandLis
 }
 
 void SparseVolume::render(const RayTracing::CommandList& commandList,
-	uint32_t frameIndex, const RenderTargetTable& rtvs)
+	uint32_t frameIndex, const Descriptor& rtv)
 {
 	// Set resource barriers
 	ResourceBarrier barriers[2];
@@ -526,7 +528,7 @@ void SparseVolume::render(const RayTracing::CommandList& commandList,
 	commandList.RSSetViewports(1, &viewport);
 	commandList.RSSetScissorRects(1, &scissorRect);
 
-	commandList.OMSetRenderTargets(1, rtvs, nullptr);
+	commandList.OMSetRenderTargets(1, &rtv);
 
 	// Record commands.
 	commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);

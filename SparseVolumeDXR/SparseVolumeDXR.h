@@ -63,7 +63,6 @@ private:
 
 	// App resources.
 	std::unique_ptr<SparseVolume> m_sparseVolume;
-	XUSG::RenderTargetTable	m_rtvTables[FrameCount];
 	XUSG::DepthStencil		m_depth;
 	XUSG::DepthStencil		m_lsDepth;
 	DirectX::XMFLOAT4X4		m_proj;

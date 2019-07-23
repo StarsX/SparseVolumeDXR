@@ -15,11 +15,11 @@ public:
 
 	bool Init(const XUSG::RayTracing::CommandList& commandList, uint32_t width, uint32_t height,
 		XUSG::Format rtFormat, XUSG::Format dsFormat, std::vector<XUSG::Resource>& uploaders,
-		XUSG::RayTracing::Geometry& geometry, const char* fileName);
+		XUSG::RayTracing::Geometry& geometry, const char* fileName, const DirectX::XMFLOAT4& posScale);
 
 	void UpdateFrame(uint32_t frameIndex, DirectX::CXMMATRIX viewProj);
 	void Render(const XUSG::RayTracing::CommandList& commandList, uint32_t frameIndex,
-		const XUSG::RenderTargetTable& rtvs, const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
+		const XUSG::Descriptor& rtv, const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
 	void RenderDXR(const XUSG::RayTracing::CommandList& commandList, uint32_t frameIndex,
 		XUSG::RenderTarget& dst, const XUSG::Descriptor& dsv);
 
@@ -108,7 +108,7 @@ protected:
 	void depthPeelLightSpace(const XUSG::RayTracing::CommandList& commandList,
 		uint32_t frameIndex, const XUSG::Descriptor& dsv);
 	void render(const XUSG::RayTracing::CommandList& commandList,
-		uint32_t frameIndex, const XUSG::RenderTargetTable& rtvs);
+		uint32_t frameIndex, const XUSG::Descriptor& rtv);
 	void rayTrace(const XUSG::RayTracing::CommandList& commandList, uint32_t frameIndex);
 
 	XUSG::RayTracing::Device m_device;
@@ -160,5 +160,6 @@ protected:
 
 	DirectX::XMFLOAT2				m_viewport;
 	DirectX::XMFLOAT4				m_bound;
+	DirectX::XMFLOAT4				m_posScale;
 	uint32_t						m_numIndices;
 };

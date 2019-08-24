@@ -59,17 +59,17 @@ bool SparseVolume::Init(const RayTracing::CommandList& commandList, uint32_t wid
 
 	// Create output grids and build acceleration structures
 	for (auto& kBuffer : m_depthKBuffers)
-		N_RETURN(kBuffer.Create(m_device.Common, width, height, DXGI_FORMAT_R32_UINT, NUM_K_LAYERS,
-			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), false);
+		N_RETURN(kBuffer.Create(m_device.Common, width, height, Format::R32_UINT, NUM_K_LAYERS,
+			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 	for (auto& kBuffer : m_lsDepthKBuffers)
-		N_RETURN(kBuffer.Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, DXGI_FORMAT_R32_UINT, NUM_K_LAYERS,
-			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), false);
+		N_RETURN(kBuffer.Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, Format::R32_UINT, NUM_K_LAYERS,
+			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 	for (auto& outView : m_outputViews)
 		N_RETURN(outView.Create(m_device.Common, width, height, rtFormat, 1,
-			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), false);
+			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 	for (auto& thickness : m_thicknesses)
-		N_RETURN(thickness.Create(m_device.Common, width, height, DXGI_FORMAT_R32_FLOAT, 1,
-			D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS), false);
+		N_RETURN(thickness.Create(m_device.Common, width, height, Format::R32_FLOAT, 1,
+			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 
 	// Initialize world transform
 	const auto world = XMMatrixIdentity();
@@ -146,8 +146,8 @@ void SparseVolume::RenderDXR(const RayTracing::CommandList& commandList,
 	rayTrace(commandList, frameIndex);
 
 	ResourceBarrier barriers[2];
-	auto numBarriers = m_outputViews[frameIndex].SetBarrier(barriers, D3D12_RESOURCE_STATE_COPY_SOURCE);
-	numBarriers = dst.SetBarrier(barriers, D3D12_RESOURCE_STATE_COPY_DEST, numBarriers);
+	auto numBarriers = m_outputViews[frameIndex].SetBarrier(barriers, ResourceState::COPY_SOURCE);
+	numBarriers = dst.SetBarrier(barriers, ResourceState::COPY_DEST, numBarriers);
 
 	TextureCopyLocation dstCopyLoc(dst.GetResource().get(), 0);
 	TextureCopyLocation srcCopyLoc(m_outputViews[frameIndex].GetResource().get(), 0);
@@ -158,12 +158,12 @@ void SparseVolume::RenderDXR(const RayTracing::CommandList& commandList,
 bool SparseVolume::createVB(const RayTracing::CommandList& commandList, uint32_t numVert,
 	uint32_t stride, const uint8_t* pData, vector<Resource>& uploaders)
 {
-	N_RETURN(m_vertexBuffer.Create(m_device.Common, numVert, stride, D3D12_RESOURCE_FLAG_NONE,
-		D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COPY_DEST), false);
+	N_RETURN(m_vertexBuffer.Create(m_device.Common, numVert, stride, ResourceFlag::NONE,
+		MemoryType::DEFAULT, ResourceState::COPY_DEST), false);
 	uploaders.push_back(nullptr);
 
 	return m_vertexBuffer.Upload(commandList, uploaders.back(), pData, stride * numVert,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		ResourceState::NON_PIXEL_SHADER_RESOURCE);
 }
 
 bool SparseVolume::createIB(const RayTracing::CommandList& commandList, uint32_t numIndices,
@@ -172,23 +172,21 @@ bool SparseVolume::createIB(const RayTracing::CommandList& commandList, uint32_t
 	m_numIndices = numIndices;
 	const uint32_t byteWidth = sizeof(uint32_t) * numIndices;
 
-	N_RETURN(m_indexBuffer.Create(m_device.Common, byteWidth, DXGI_FORMAT_R32_UINT,
-		D3D12_RESOURCE_FLAG_NONE, D3D12_HEAP_TYPE_DEFAULT, D3D12_RESOURCE_STATE_COPY_DEST), false);
+	N_RETURN(m_indexBuffer.Create(m_device.Common, byteWidth, Format::R32_UINT,
+		ResourceFlag::NONE, MemoryType::DEFAULT, ResourceState::COPY_DEST), false);
 	uploaders.push_back(nullptr);
 
 	return m_indexBuffer.Upload(commandList, uploaders.back(), pData, byteWidth,
-		D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE);
+		ResourceState::NON_PIXEL_SHADER_RESOURCE);
 }
 
 bool SparseVolume::createInputLayout()
 {
-	const auto offset = D3D12_APPEND_ALIGNED_ELEMENT;
-
 	// Define the vertex input layout.
 	InputElementTable inputElementDescs =
 	{
-		{ "POSITION",	0, DXGI_FORMAT_R32G32B32_FLOAT, 0, 0,		D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 },
-		{ "NORMAL",		0, DXGI_FORMAT_R32G32B32_FLOAT, 0, offset,	D3D12_INPUT_CLASSIFICATION_PER_VERTEX_DATA, 0 }
+		{ "POSITION",	0, Format::R32G32B32_FLOAT, 0, 0,						InputClassification::PER_VERTEX_DATA, 0 },
+		{ "NORMAL",		0, Format::R32G32B32_FLOAT, 0, APPEND_ALIGNED_ELEMENT,	InputClassification::PER_VERTEX_DATA, 0 }
 	};
 
 	X_RETURN(m_inputLayout, m_graphicsPipelineCache.CreateInputLayout(inputElementDescs), false);
@@ -204,11 +202,11 @@ bool SparseVolume::createPipelineLayouts()
 		Util::PipelineLayout pipelineLayout;
 		pipelineLayout.SetConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), 0);
 		pipelineLayout.SetRange(SRV_UAVS, DescriptorType::UAV, 1, 0, 0,
-			D3D12_DESCRIPTOR_RANGE_FLAG_DATA_STATIC_WHILE_SET_AT_EXECUTE);
+			DescriptorRangeFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE);
 		pipelineLayout.SetShaderStage(CONSTANTS, Shader::Stage::VS);
 		pipelineLayout.SetShaderStage(SRV_UAVS, Shader::Stage::PS);
 		X_RETURN(m_pipelineLayouts[DEPTH_PEEL_LAYOUT], pipelineLayout.GetPipelineLayout(m_pipelineLayoutCache,
-			D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"DepthPeelingLayout"), false);
+			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"DepthPeelingLayout"), false);
 	}
 
 	// Sparse volume rendering pass with shadow mapping
@@ -220,7 +218,7 @@ bool SparseVolume::createPipelineLayouts()
 		pipelineLayout.SetShaderStage(CONSTANTS, Shader::Stage::PS);
 		pipelineLayout.SetShaderStage(SRV_UAVS, Shader::Stage::PS);
 		X_RETURN(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT], pipelineLayout.GetPipelineLayout(m_pipelineLayoutCache,
-			D3D12_ROOT_SIGNATURE_FLAG_NONE, L"SparseRayCastLayout"), false);
+			PipelineLayoutFlag::NONE, L"SparseRayCastLayout"), false);
 	}
 
 	// Global pipeline layout
@@ -231,7 +229,7 @@ bool SparseVolume::createPipelineLayouts()
 		pipelineLayout.SetRootSRV(ACCELERATION_STRUCTURE, 0);
 		pipelineLayout.SetRange(DEPTH_K_BUFFERS, DescriptorType::SRV, 1, 1);
 		X_RETURN(m_pipelineLayouts[GLOBAL_LAYOUT], pipelineLayout.GetPipelineLayout(m_device, m_pipelineLayoutCache,
-			D3D12_ROOT_SIGNATURE_FLAG_NONE, NumUAVs, L"RayTracerGlobalPipelineLayout"), false);
+			PipelineLayoutFlag::NONE, NumUAVs, L"RayTracerGlobalPipelineLayout"), false);
 	}
 
 	// Local pipeline layout for RayGen shader
@@ -240,7 +238,7 @@ bool SparseVolume::createPipelineLayouts()
 		RayTracing::PipelineLayout pipelineLayout;
 		pipelineLayout.SetConstants(CONSTANTS, SizeOfInUint32(RayGenConstants), 0);
 		X_RETURN(m_pipelineLayouts[RAY_GEN_LAYOUT], pipelineLayout.GetPipelineLayout(m_device, m_pipelineLayoutCache,
-			D3D12_ROOT_SIGNATURE_FLAG_LOCAL_ROOT_SIGNATURE, NumUAVs, L"RayTracerRayGenPipelineLayout"), false);
+			PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT, NumUAVs, L"RayTracerRayGenPipelineLayout"), false);
 	}
 
 	return true;
@@ -259,7 +257,7 @@ bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 		state.RSSetState(Graphics::RasterizerPreset::CULL_NONE, m_graphicsPipelineCache);
 		state.DSSetState(Graphics::DepthStencilPreset::DEPTH_READ_LESS, m_graphicsPipelineCache);
 		state.IASetInputLayout(m_inputLayout);
-		state.IASetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+		state.IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
 		state.OMSetDSVFormat(dsFormat);
 
 		X_RETURN(m_pipelines[DEPTH_PEEL], state.GetPipeline(m_graphicsPipelineCache, L"DepthPeeling"), false);
@@ -274,7 +272,7 @@ bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 		state.SetShader(Shader::Stage::VS, m_shaderPool.GetShader(Shader::Stage::VS, VS_SCREEN_QUAD));
 		state.SetShader(Shader::Stage::PS, m_shaderPool.GetShader(Shader::Stage::PS, PS_SPARSE_RAYCAST));
 		state.DSSetState(Graphics::DepthStencilPreset::DEPTH_STENCIL_NONE, m_graphicsPipelineCache);
-		state.IASetPrimitiveTopologyType(D3D12_PRIMITIVE_TOPOLOGY_TYPE_TRIANGLE);
+		state.IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
 		state.OMSetRTVFormats(&rtFormat, 1);
 
 		X_RETURN(m_pipelines[SPARSE_RAYCAST], state.GetPipeline(m_graphicsPipelineCache, L"SparseRayCast"), false);
@@ -370,7 +368,7 @@ bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList& co
 
 	// Set geometries
 	const auto geometryFlags = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
-	BottomLevelAS::SetGeometries(geometries, 1, DXGI_FORMAT_R32G32B32_FLOAT,
+	BottomLevelAS::SetGeometries(geometries, 1, Format::R32G32B32_FLOAT,
 		&m_vertexBuffer.GetVBV(), &m_indexBuffer.GetIBV(), &geometryFlags);
 
 	// Descriptor index in descriptor pool
@@ -403,8 +401,8 @@ bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList& co
 
 	// Set resource barriers
 	ResourceBarrier barriers[2];
-	auto numBarriers = m_vertexBuffer.SetBarrier(barriers, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	numBarriers = m_indexBuffer.SetBarrier(barriers, D3D12_RESOURCE_STATE_INDEX_BUFFER, numBarriers);
+	auto numBarriers = m_vertexBuffer.SetBarrier(barriers, ResourceState::VERTEX_AND_CONSTANT_BUFFER);
+	numBarriers = m_indexBuffer.SetBarrier(barriers, ResourceState::INDEX_BUFFER, numBarriers);
 	commandList.Barrier(numBarriers, barriers);
 
 	return true;
@@ -440,7 +438,7 @@ void SparseVolume::depthPeel(const RayTracing::CommandList& commandList,
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
-	const auto numBarriers = m_depthKBuffers[frameIndex].SetBarrier(&barrier, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	const auto numBarriers = m_depthKBuffers[frameIndex].SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
 	commandList.Barrier(numBarriers, &barrier);
 
 	// Set descriptor tables
@@ -465,7 +463,7 @@ void SparseVolume::depthPeel(const RayTracing::CommandList& commandList,
 	// Record commands.
 	commandList.IASetVertexBuffers(0, 1, &m_vertexBuffer.GetVBV());
 	commandList.IASetIndexBuffer(m_indexBuffer.GetIBV());
-	commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList.IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
 	commandList.DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
@@ -474,7 +472,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList& commandLis
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
-	const auto numBarriers = m_lsDepthKBuffers[frameIndex].SetBarrier(&barrier, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	const auto numBarriers = m_lsDepthKBuffers[frameIndex].SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
 	commandList.Barrier(numBarriers, &barrier);
 
 	// Set descriptor tables
@@ -500,7 +498,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList& commandLis
 	// Record commands.
 	commandList.IASetVertexBuffers(0, 1, &m_vertexBuffer.GetVBV());
 	commandList.IASetIndexBuffer(m_indexBuffer.GetIBV());
-	commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+	commandList.IASetPrimitiveTopology(PrimitiveTopology::TRIANGLELIST);
 	commandList.DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
@@ -509,8 +507,8 @@ void SparseVolume::render(const RayTracing::CommandList& commandList,
 {
 	// Set resource barriers
 	ResourceBarrier barriers[2];
-	auto numBarriers = m_depthKBuffers[frameIndex].SetBarrier(barriers, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE);
-	numBarriers = m_lsDepthKBuffers[frameIndex].SetBarrier(barriers, D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE, numBarriers);
+	auto numBarriers = m_depthKBuffers[frameIndex].SetBarrier(barriers, ResourceState::PIXEL_SHADER_RESOURCE);
+	numBarriers = m_lsDepthKBuffers[frameIndex].SetBarrier(barriers, ResourceState::PIXEL_SHADER_RESOURCE, numBarriers);
 	commandList.Barrier(numBarriers, barriers);
 
 	// Set descriptor tables
@@ -531,7 +529,7 @@ void SparseVolume::render(const RayTracing::CommandList& commandList,
 	commandList.OMSetRenderTargets(1, &rtv);
 
 	// Record commands.
-	commandList.IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLESTRIP);
+	commandList.IASetPrimitiveTopology(PrimitiveTopology::TRIANGLESTRIP);
 	commandList.Draw(3, 1, 0, 0);
 }
 
@@ -539,7 +537,7 @@ void SparseVolume::rayTrace(const RayTracing::CommandList& commandList, uint32_t
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
-	const auto numBarriers = m_outputViews[frameIndex].SetBarrier(&barrier, D3D12_RESOURCE_STATE_UNORDERED_ACCESS);
+	const auto numBarriers = m_outputViews[frameIndex].SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
 	commandList.Barrier(numBarriers, &barrier);
 
 	// Set descriptor tables

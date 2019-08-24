@@ -113,7 +113,7 @@ protected:
 
 	XUSG::RayTracing::Device m_device;
 
-	static const uint32_t NumUAVs = 2 + FrameCount * NUM_UAV_TABLE;
+	static const uint32_t NumUAVs = 2;
 	XUSG::RayTracing::BottomLevelAS m_bottomLevelAS;
 	XUSG::RayTracing::TopLevelAS m_topLevelAS;
 

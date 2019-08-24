@@ -120,8 +120,8 @@ void SparseVolumeDXR::LoadPipeline()
 	}
 
 	// Create a DSV
-	N_RETURN(m_depth.Create(m_device.Common, m_width, m_height, DXGI_FORMAT_D24_UNORM_S8_UINT,
-		D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE), ThrowIfFailed(E_FAIL));
+	N_RETURN(m_depth.Create(m_device.Common, m_width, m_height, Format::D24_UNORM_S8_UINT,
+		ResourceFlag::DENY_SHADER_RESOURCE), ThrowIfFailed(E_FAIL));
 }
 
 // Load the sample assets.
@@ -134,16 +134,16 @@ void SparseVolumeDXR::LoadAssets()
 	// Create ray tracing interfaces
 	CreateRaytracingInterfaces();
 
-	m_lsDepth.Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, m_depth.GetResource()->GetDesc().Format,
-		D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE);
+	m_lsDepth.Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, static_cast<Format>(m_depth.GetResource()->GetDesc().Format),
+		ResourceFlag::DENY_SHADER_RESOURCE);
 
 	m_sparseVolume = make_unique<SparseVolume>(m_device);
 	if (!m_sparseVolume) ThrowIfFailed(E_FAIL);
 
 	vector<Resource> uploaders(0);
 	Geometry geometry;
-	if (!m_sparseVolume->Init(m_commandList, m_width, m_height, m_renderTargets[0].GetResource()->GetDesc().Format,
-		m_depth.GetResource()->GetDesc().Format, uploaders, geometry, m_meshFileName.c_str(), m_meshPosScale))
+	if (!m_sparseVolume->Init(m_commandList, m_width, m_height, static_cast<Format>(m_renderTargets[0].GetResource()->GetDesc().Format),
+		static_cast<Format>(m_depth.GetResource()->GetDesc().Format), uploaders, geometry, m_meshFileName.c_str(), m_meshPosScale))
 		ThrowIfFailed(E_FAIL);
 
 	// Close the command list and execute it to begin the initial GPU setup.
@@ -340,22 +340,22 @@ void SparseVolumeDXR::PopulateCommandList()
 	ResourceBarrier barrier;
 	if (!m_useRayTracing)
 	{
-		const auto numBarriers = m_renderTargets[m_frameIndex].SetBarrier(&barrier, D3D12_RESOURCE_STATE_RENDER_TARGET);
+		const auto numBarriers = m_renderTargets[m_frameIndex].SetBarrier(&barrier, ResourceState::RENDER_TARGET);
 		m_commandList.Barrier(numBarriers, &barrier);
 	}
 
 	// Record commands.
 	//const float clearColor[] = { CLEAR_COLOR, 1.0f };
 	//m_commandList.ClearRenderTargetView(*m_rtvTables[m_frameIndex], clearColor);
-	m_commandList.ClearDepthStencilView(m_depth.GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f);
-	m_commandList.ClearDepthStencilView(m_lsDepth.GetDSV(), D3D12_CLEAR_FLAG_DEPTH, 1.0f);
+	m_commandList.ClearDepthStencilView(m_depth.GetDSV(), ClearFlag::DEPTH, 1.0f);
+	m_commandList.ClearDepthStencilView(m_lsDepth.GetDSV(), ClearFlag::DEPTH, 1.0f);
 
 	// Voxelizer rendering
 	if (m_useRayTracing) m_sparseVolume->RenderDXR(m_commandList, m_frameIndex, m_renderTargets[m_frameIndex], m_depth.GetDSV());
 	else m_sparseVolume->Render(m_commandList, m_frameIndex, m_renderTargets[m_frameIndex].GetRTV(), m_depth.GetDSV(), m_lsDepth.GetDSV());
 
 	// Indicate that the back buffer will now be used to present.
-	const auto numBarriers = m_renderTargets[m_frameIndex].SetBarrier(&barrier, D3D12_RESOURCE_STATE_PRESENT);
+	const auto numBarriers = m_renderTargets[m_frameIndex].SetBarrier(&barrier, ResourceState::PRESENT);
 	m_commandList.Barrier(numBarriers, &barrier);
 
 	ThrowIfFailed(m_commandList.Close());

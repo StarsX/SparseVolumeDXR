@@ -27,6 +27,7 @@ class SparseVolumeDXR : public DXFramework
 {
 public:
 	SparseVolumeDXR(uint32_t width, uint32_t height, std::wstring name);
+	virtual ~SparseVolumeDXR();
 
 	virtual void OnInit();
 	virtual void OnUpdate();

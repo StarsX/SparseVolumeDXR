@@ -456,7 +456,7 @@ void SparseVolume::depthPeel(const RayTracing::CommandList& commandList,
 
 	const auto maxDepth = 1.0f;
 	commandList.OMSetRenderTargets(0, nullptr, &dsv);
-	commandList.ClearUnorderedAccessViewUint(*m_uavTables[UAV_TABLE_KBUFFER][frameIndex], m_depthKBuffers[frameIndex].GetUAV(),
+	commandList.ClearUnorderedAccessViewUint(m_uavTables[UAV_TABLE_KBUFFER][frameIndex], m_depthKBuffers[frameIndex].GetUAV(),
 		m_depthKBuffers[frameIndex].GetResource(), XMVECTORU32{ reinterpret_cast<const uint32_t&>(maxDepth) }.u);
 
 	// Record commands.
@@ -491,7 +491,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList& commandLis
 
 	const auto maxDepth = 1.0f;
 	commandList.OMSetRenderTargets(0, nullptr, &dsv);
-	commandList.ClearUnorderedAccessViewUint(*m_uavTables[UAV_TABLE_LS_KBUFFER][frameIndex], m_lsDepthKBuffers[frameIndex].GetUAV(),
+	commandList.ClearUnorderedAccessViewUint(m_uavTables[UAV_TABLE_LS_KBUFFER][frameIndex], m_lsDepthKBuffers[frameIndex].GetUAV(),
 		m_lsDepthKBuffers[frameIndex].GetResource(), XMVECTORU32{ reinterpret_cast<const uint32_t&>(maxDepth) }.u);
 
 	// Record commands.
@@ -545,8 +545,8 @@ void SparseVolume::rayTrace(const RayTracing::CommandList& commandList, uint32_t
 	commandList.SetTopLevelAccelerationStructure(ACCELERATION_STRUCTURE, m_topLevelAS);
 	commandList.SetComputeDescriptorTable(DEPTH_K_BUFFERS, m_srvTables[frameIndex]);
 
-	commandList.ClearUnorderedAccessViewFloat(*m_uavTables[UAV_TABLE_THICKNESS][frameIndex], m_thicknesses[frameIndex].GetUAV(),
-		m_thicknesses[frameIndex].GetResource(), XMVECTORF32{ 0.0f }.f);
+	commandList.ClearUnorderedAccessViewFloat(m_uavTables[UAV_TABLE_THICKNESS][frameIndex], m_thicknesses[frameIndex].GetUAV(),
+		m_thicknesses[frameIndex].GetResource(), XMVECTORF32{ 0.0f });
 
 	// Fallback layer has no depth
 	commandList.DispatchRays(m_rayTracingPipeline, (uint32_t)m_viewport.x, (uint32_t)m_viewport.y, 1,

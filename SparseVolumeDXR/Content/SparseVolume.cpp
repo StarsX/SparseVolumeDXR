@@ -3,7 +3,7 @@
 //--------------------------------------------------------------------------------------
 
 #include "SharedConst.h"
-#include "ObjLoader.h"
+#include "Optional/XUSGObjLoader.h"
 #include "SparseVolume.h"
 
 using namespace std;

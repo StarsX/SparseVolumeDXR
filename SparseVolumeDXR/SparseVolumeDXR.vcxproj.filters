@@ -49,6 +49,15 @@
     <Filter Include="XUSG\Core\Source Files\Inc">
       <UniqueIdentifier>{dd74ccd5-91f5-4876-9b1e-c388502655ca}</UniqueIdentifier>
     </Filter>
+    <Filter Include="XUSG\Optional">
+      <UniqueIdentifier>{cf33d033-4330-4a25-9dd9-7070c02d511a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\Optional\Source Files">
+      <UniqueIdentifier>{e12df810-045b-4b7c-ba16-ef606aece93a}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="XUSG\Optional\Header Files">
+      <UniqueIdentifier>{f3532c62-1142-414f-881a-6e77f8d1c704}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Common\d3dx12.h">
@@ -117,9 +126,6 @@
     <ClInclude Include="stdafx.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="Content\ObjLoader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="Content\SharedConst.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -134,6 +140,9 @@
     </ClInclude>
     <ClInclude Include="XUSG\Core\XUSGReflector.h">
       <Filter>XUSG\Core\Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="XUSG\Optional\XUSGObjLoader.h">
+      <Filter>XUSG\Optional\Header Files</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -188,9 +197,6 @@
     <ClCompile Include="stdafx.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="Content\ObjLoader.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="Content\SparseVolume.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -199,6 +205,9 @@
     </ClCompile>
     <ClCompile Include="XUSG\Core\XUSGReflector.cpp">
       <Filter>XUSG\Core\Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="XUSG\Optional\XUSGObjLoader.cpp">
+      <Filter>XUSG\Optional\Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

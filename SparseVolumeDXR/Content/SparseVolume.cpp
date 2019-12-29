@@ -70,6 +70,16 @@ bool SparseVolume::Init(const RayTracing::CommandList& commandList, uint32_t wid
 		N_RETURN(thickness.Create(m_device.Common, width, height, Format::R32_FLOAT, 1,
 			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 
+	auto numBarriers = 0u;
+	ResourceBarrier barriers[FrameCount * 3];
+	for (auto& kBuffer : m_depthKBuffers)
+		numBarriers = kBuffer.SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	for (auto& kBuffer : m_lsDepthKBuffers)
+		numBarriers = kBuffer.SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	for (auto& thickness : m_thicknesses)
+		numBarriers = thickness.SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
+	commandList.Barrier(numBarriers, barriers);
+
 	// Initialize world transform
 	const auto world = XMMatrixIdentity();
 	XMStoreFloat4x4(&m_world, XMMatrixTranspose(world));

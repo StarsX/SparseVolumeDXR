@@ -157,12 +157,13 @@ void SparseVolume::RenderDXR(const RayTracing::CommandList& commandList,
 bool SparseVolume::createVB(const RayTracing::CommandList& commandList, uint32_t numVert,
 	uint32_t stride, const uint8_t* pData, vector<Resource>& uploaders)
 {
-	N_RETURN(m_vertexBuffer.Create(m_device.Common, numVert, stride, ResourceFlag::NONE,
-		MemoryType::DEFAULT, ResourceState::COPY_DEST), false);
+	N_RETURN(m_vertexBuffer.Create(m_device.Common, numVert, stride,
+		ResourceFlag::NONE, MemoryType::DEFAULT), false);
 	uploaders.push_back(nullptr);
 
-	return m_vertexBuffer.Upload(commandList, uploaders.back(), pData, stride * numVert,
-		ResourceState::NON_PIXEL_SHADER_RESOURCE);
+	return m_vertexBuffer.Upload(commandList, uploaders.back(),
+		ResourceState::NON_PIXEL_SHADER_RESOURCE,
+		pData, stride * numVert);
 }
 
 bool SparseVolume::createIB(const RayTracing::CommandList& commandList, uint32_t numIndices,
@@ -172,11 +173,11 @@ bool SparseVolume::createIB(const RayTracing::CommandList& commandList, uint32_t
 	const uint32_t byteWidth = sizeof(uint32_t) * numIndices;
 
 	N_RETURN(m_indexBuffer.Create(m_device.Common, byteWidth, Format::R32_UINT,
-		ResourceFlag::NONE, MemoryType::DEFAULT, ResourceState::COPY_DEST), false);
+		ResourceFlag::NONE, MemoryType::DEFAULT), false);
 	uploaders.push_back(nullptr);
 
-	return m_indexBuffer.Upload(commandList, uploaders.back(), pData, byteWidth,
-		ResourceState::NON_PIXEL_SHADER_RESOURCE);
+	return m_indexBuffer.Upload(commandList, uploaders.back(),
+		ResourceState::NON_PIXEL_SHADER_RESOURCE, pData, byteWidth);
 }
 
 bool SparseVolume::createInputLayout()

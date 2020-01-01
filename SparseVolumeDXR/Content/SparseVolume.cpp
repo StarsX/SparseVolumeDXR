@@ -59,26 +59,16 @@ bool SparseVolume::Init(const RayTracing::CommandList& commandList, uint32_t wid
 	// Create output grids and build acceleration structures
 	for (auto& kBuffer : m_depthKBuffers)
 		N_RETURN(kBuffer.Create(m_device.Common, width, height, Format::R32_UINT, NUM_K_LAYERS,
-			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
+			ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS), false);
 	for (auto& kBuffer : m_lsDepthKBuffers)
 		N_RETURN(kBuffer.Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, Format::R32_UINT, NUM_K_LAYERS,
-			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
+			ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS), false);
 	for (auto& outView : m_outputViews)
 		N_RETURN(outView.Create(m_device.Common, width, height, rtFormat, 1,
 			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 	for (auto& thickness : m_thicknesses)
 		N_RETURN(thickness.Create(m_device.Common, width, height, Format::R32_FLOAT, 1,
-			ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
-
-	auto numBarriers = 0u;
-	ResourceBarrier barriers[FrameCount * 3];
-	for (auto& kBuffer : m_depthKBuffers)
-		numBarriers = kBuffer.SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
-	for (auto& kBuffer : m_lsDepthKBuffers)
-		numBarriers = kBuffer.SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
-	for (auto& thickness : m_thicknesses)
-		numBarriers = thickness.SetBarrier(barriers, ResourceState::UNORDERED_ACCESS, numBarriers);
-	commandList.Barrier(numBarriers, barriers);
+			ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS), false);
 
 	// Initialize world transform
 	const auto world = XMMatrixIdentity();
@@ -171,9 +161,8 @@ bool SparseVolume::createVB(const RayTracing::CommandList& commandList, uint32_t
 		ResourceFlag::NONE, MemoryType::DEFAULT), false);
 	uploaders.push_back(nullptr);
 
-	return m_vertexBuffer.Upload(commandList, uploaders.back(),
-		ResourceState::NON_PIXEL_SHADER_RESOURCE,
-		pData, stride * numVert);
+	return m_vertexBuffer.Upload(commandList, uploaders.back(), pData,
+		stride * numVert, 0, ResourceState::NON_PIXEL_SHADER_RESOURCE);
 }
 
 bool SparseVolume::createIB(const RayTracing::CommandList& commandList, uint32_t numIndices,
@@ -186,8 +175,8 @@ bool SparseVolume::createIB(const RayTracing::CommandList& commandList, uint32_t
 		ResourceFlag::NONE, MemoryType::DEFAULT), false);
 	uploaders.push_back(nullptr);
 
-	return m_indexBuffer.Upload(commandList, uploaders.back(),
-		ResourceState::NON_PIXEL_SHADER_RESOURCE, pData, byteWidth);
+	return m_indexBuffer.Upload(commandList, uploaders.back(), pData,
+		byteWidth, 0, ResourceState::NON_PIXEL_SHADER_RESOURCE);
 }
 
 bool SparseVolume::createInputLayout()
@@ -377,7 +366,7 @@ bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList& co
 	AccelerationStructure::SetFrameCount(FrameCount);
 
 	// Set geometries
-	const auto geometryFlags = D3D12_RAYTRACING_GEOMETRY_FLAG_NONE;
+	const auto geometryFlags = GeometryFlags::NONE;
 	BottomLevelAS::SetGeometries(geometries, 1, Format::R32G32B32_FLOAT,
 		&m_vertexBuffer.GetVBV(), &m_indexBuffer.GetIBV(), &geometryFlags);
 
@@ -448,8 +437,7 @@ void SparseVolume::depthPeel(const RayTracing::CommandList& commandList,
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
-	const auto numBarriers = m_depthKBuffers[frameIndex].SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
-	commandList.Barrier(numBarriers, &barrier);
+	m_depthKBuffers[frameIndex].SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS); // Auto promotion
 
 	// Set descriptor tables
 	commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
@@ -482,8 +470,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList& commandLis
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
-	const auto numBarriers = m_lsDepthKBuffers[frameIndex].SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS);
-	commandList.Barrier(numBarriers, &barrier);
+	m_lsDepthKBuffers[frameIndex].SetBarrier(&barrier, ResourceState::UNORDERED_ACCESS); // Auto promotion
 
 	// Set descriptor tables
 	commandList.SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);

@@ -4,6 +4,8 @@
 
 #include "SparseRayCast.hlsli"
 
+#define TRACE_RAY_ONCE	1
+
 #define SCREEN_TO_WORLD(xy, z)	ScreenToWorld(xy, z, l_rayGenCB.ScreenToWorld)
 
 typedef RaytracingAccelerationStructure RaytracingAS;
@@ -14,8 +16,6 @@ typedef BuiltInTriangleIntersectionAttributes TriAttributes;
 //--------------------------------------------------------------------------------------
 struct RayPayload
 {
-	uint2 Index;
-	uint Sign;
 	float RayLengthSum;
 };
 
@@ -34,7 +34,6 @@ ConstantBuffer<RayGenConstants> l_rayGenCB : register(b0);
 // Texture and buffers
 //--------------------------------------------------------------------------------------
 RWTexture2D<float4>			RenderTarget	: register(u0);
-RWTexture2D<float>			ThicknessBuf	: register(u1);
 RaytracingAS				g_scene			: register(t0);
 Texture2DArray<uint>		g_txKBufDepth	: register(t1);
 
@@ -46,18 +45,20 @@ float LightPathThickness(RayDesc ray, float3 origin, uint2 index)
 	// Trace the ray.
 	ray.Origin = origin;
 
-	RayPayload payloadF = { index, 0, 0.0 };
+#if TRACE_RAY_ONCE
+	RayPayload payload = { 0.0 };
+	TraceRay(g_scene, RAY_FLAG_NONE, ~0, 0, 1, 0, ray, payload);
+
+	return payload.RayLengthSum;
+#else
+	RayPayload payloadF = { 0.0 };
 	TraceRay(g_scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payloadF);
 
-	RayPayload payloadB = { index, 1, 0.0 };
+	RayPayload payloadB = { 0.0 };
 	TraceRay(g_scene, RAY_FLAG_CULL_FRONT_FACING_TRIANGLES, ~0, 0, 1, 0, ray, payloadB);
 
-	//return ThicknessBuf[index];
 	return payloadB.RayLengthSum - payloadF.RayLengthSum;
-	//RayPayload payload = { index, 0, 0.0 };
-	//TraceRay(g_scene, RAY_FLAG_NONE, ~0, 0, 1, 0, ray, payload);
-
-	//return payload.RayLengthSum;
+#endif
 }
 
 //--------------------------------------------------------------------------------------
@@ -69,7 +70,7 @@ void raygenMain()
 	// Trace the ray.
 	RayDesc ray;
 	ray.Direction = l_rayGenCB.LightDir;
-	ray.TMin = 0.125;
+	ray.TMin = 0.0;
 	ray.TMax = 10000.0;
 
 	// Fallback layer has no depth
@@ -125,33 +126,18 @@ void raygenMain()
 }
 
 //--------------------------------------------------------------------------------------
-// Ray closest hit
-//--------------------------------------------------------------------------------------
-[shader("closesthit")]
-void closestHitMain(inout RayPayload payload, TriAttributes attr)
-{
-}
-
-//--------------------------------------------------------------------------------------
 // Ray any hit
 //--------------------------------------------------------------------------------------
 [shader("anyhit")]
 void anyHitMain(inout RayPayload payload, TriAttributes attr)
 {
-	//if (payload.AnyHitCount < MAX_ANY_HIT_COUNT)
-	{
-		//payload.RayLengthSum += RayTCurrent();
-		//++payload.AnyHitCount;
-		//IgnoreHit();
-	}
-
+#if TRACE_RAY_ONCE
+	const float distance = RayTCurrent();
+	payload.RayLengthSum += HitKind() == HIT_KIND_TRIANGLE_BACK_FACE ? distance : -distance;
+#else
 	payload.RayLengthSum += RayTCurrent();
-	//payload.RayLengthSum = max(RayTCurrent(), payload.RayLengthSum);
-	//AcceptHitAndEndSearch();
-
-	//const float distance = RayTCurrent();
-	//ThicknessBuf[payload.Index] += payload.Sign ? distance : -distance;
-	//ThicknessBuf[payload.Index] = 10.0f;
+#endif
+	IgnoreHit();
 }
 
 //--------------------------------------------------------------------------------------

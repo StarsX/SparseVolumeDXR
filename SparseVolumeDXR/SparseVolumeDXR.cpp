@@ -143,7 +143,7 @@ void SparseVolumeDXR::LoadAssets()
 		m_commandAllocators[m_frameIndex], nullptr), ThrowIfFailed(E_FAIL));
 
 	// Create ray tracing interfaces
-	CreateRaytracingInterfaces();
+	if (m_isDxrSupported) CreateRaytracingInterfaces();
 
 	m_lsDepth.Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, static_cast<Format>(m_depth.GetResource()->GetDesc().Format),
 		ResourceFlag::DENY_SHADER_RESOURCE);
@@ -154,7 +154,8 @@ void SparseVolumeDXR::LoadAssets()
 	vector<Resource> uploaders(0);
 	Geometry geometry;
 	if (!m_sparseVolume->Init(m_commandList, m_width, m_height, static_cast<Format>(m_renderTargets[0].GetResource()->GetDesc().Format),
-		static_cast<Format>(m_depth.GetResource()->GetDesc().Format), uploaders, geometry, m_meshFileName.c_str(), m_meshPosScale))
+		static_cast<Format>(m_depth.GetResource()->GetDesc().Format), uploaders, m_isDxrSupported ? &geometry : nullptr,
+		m_meshFileName.c_str(), m_meshPosScale))
 		ThrowIfFailed(E_FAIL);
 
 	// Close the command list and execute it to begin the initial GPU setup.
@@ -248,7 +249,7 @@ void SparseVolumeDXR::OnKeyUp(uint8_t key)
 		m_showFPS = !m_showFPS;
 		break;
 	case 'R':
-		m_useRayTracing = !m_useRayTracing;
+		m_useRayTracing = !m_useRayTracing && m_isDxrSupported;
 		break;
 	}
 }
@@ -363,7 +364,7 @@ void SparseVolumeDXR::PopulateCommandList()
 
 	// Voxelizer rendering
 	if (m_useRayTracing) m_sparseVolume->RenderDXR(m_commandList, m_frameIndex, m_renderTargets[m_frameIndex], m_depth.GetDSV());
-	else m_sparseVolume->Render(m_commandList, m_frameIndex, m_renderTargets[m_frameIndex].GetRTV(), m_depth.GetDSV(), m_lsDepth.GetDSV());
+	else m_sparseVolume->Render(m_commandList, m_renderTargets[m_frameIndex].GetRTV(), m_depth.GetDSV(), m_lsDepth.GetDSV());
 
 	// Indicate that the back buffer will now be used to present.
 	const auto numBarriers = m_renderTargets[m_frameIndex].SetBarrier(&barrier, ResourceState::PRESENT);
@@ -426,6 +427,7 @@ double SparseVolumeDXR::CalculateFrameStats(float* pTimeStep)
 		windowText << L"    fps: ";
 		if (m_showFPS) windowText << setprecision(2) << fixed << fps;
 		else windowText << L"[F1]";
+		windowText << L"    [R] " << (m_useRayTracing ? "Ray tracing" : "Shadow map array");
 		SetCustomWindowText(windowText.str().c_str());
 	}
 
@@ -438,18 +440,6 @@ double SparseVolumeDXR::CalculateFrameStats(float* pTimeStep)
 //--------------------------------------------------------------------------------------
 // Ray tracing
 //--------------------------------------------------------------------------------------
-
-// Enable experimental features required for compute-based raytracing fallback.
-// This will set active D3D12 devices to DEVICE_REMOVED state.
-// Returns bool whether the call succeeded and the device supports the feature.
-inline bool EnableComputeRaytracingFallback(IDXGIAdapter1* adapter)
-{
-	ComPtr<ID3D12Device> testDevice;
-	UUID experimentalFeatures[] = { D3D12ExperimentalShaderModels };
-
-	return SUCCEEDED(D3D12EnableExperimentalFeatures(1, experimentalFeatures, nullptr, nullptr))
-		&& SUCCEEDED(D3D12CreateDevice(adapter, D3D_FEATURE_LEVEL_11_0, IID_PPV_ARGS(&testDevice)));
-}
 
 // Returns bool whether the device supports DirectX Raytracing tier.
 inline bool IsDirectXRaytracingSupported(IDXGIAdapter1* adapter)
@@ -464,43 +454,17 @@ inline bool IsDirectXRaytracingSupported(IDXGIAdapter1* adapter)
 
 void SparseVolumeDXR::EnableDirectXRaytracing(IDXGIAdapter1* adapter)
 {
-	// Fallback Layer uses an experimental feature and needs to be enabled before creating a D3D12 device.
-	bool isFallbackSupported = EnableComputeRaytracingFallback(adapter);
-
-	if (!isFallbackSupported)
-	{
-		OutputDebugString(
-			L"Warning: Could not enable Compute Raytracing Fallback (D3D12EnableExperimentalFeatures() failed).\n" \
-			L"         Possible reasons: your OS is not in developer mode.\n\n");
-	}
-
 	m_isDxrSupported = IsDirectXRaytracingSupported(adapter);
 
 	if (!m_isDxrSupported)
-	{
 		OutputDebugString(L"Warning: DirectX Raytracing is not supported by your GPU and driver.\n\n");
-
-		if (!isFallbackSupported)
-			OutputDebugString(L"Could not enable compute based fallback raytracing support (D3D12EnableExperimentalFeatures() failed).\n"\
-				L"Possible reasons: your OS is not in developer mode.\n\n");
-		ThrowIfFailed(isFallbackSupported ? S_OK : E_FAIL);
-		m_device.RaytracingAPI = RayTracing::API::FallbackLayer;
-	}
 }
 
 void SparseVolumeDXR::CreateRaytracingInterfaces()
 {
-	if (m_device.RaytracingAPI == RayTracing::API::FallbackLayer)
-	{
-		const auto createDeviceFlags = EnableRootDescriptorsInShaderRecords;
-		ThrowIfFailed(D3D12CreateRaytracingFallbackDevice(m_device.Common.get(), createDeviceFlags, 0, IID_PPV_ARGS(&m_device.Fallback)));
-	}
-	else // DirectX Raytracing
-	{
-		const auto hr = m_device.Common->QueryInterface(IID_PPV_ARGS(&m_device.Native));
-		if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX Raytracing interface for the device.\n");
-		ThrowIfFailed(hr);
-	}
+	const auto hr = m_device.Common->QueryInterface(IID_PPV_ARGS(&m_device.Native));
+	if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX Raytracing interface for the device.\n");
+	ThrowIfFailed(hr);
 
 	m_commandList.CreateRaytracingInterfaces(m_device);
 }

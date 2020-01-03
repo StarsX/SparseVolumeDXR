@@ -1,14 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.106
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.29424.173
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "SparseVolumeDXR", "SparseVolumeDXR\SparseVolumeDXR.vcxproj", "{02F05630-FD91-4859-AC6D-E09E19C60572}"
-	ProjectSection(ProjectDependencies) = postProject
-		{4BE280A6-1066-41CA-ACDD-6BB7E532508B} = {4BE280A6-1066-41CA-ACDD-6BB7E532508B}
-	EndProjectSection
-EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FallbackLayer", "D3D12RaytracingFallback\src\FallbackLayer.vcxproj", "{4BE280A6-1066-41CA-ACDD-6BB7E532508B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,12 +21,6 @@ Global
 		{02F05630-FD91-4859-AC6D-E09E19C60572}.Release|x64.Build.0 = Release|x64
 		{02F05630-FD91-4859-AC6D-E09E19C60572}.Release|x86.ActiveCfg = Release|Win32
 		{02F05630-FD91-4859-AC6D-E09E19C60572}.Release|x86.Build.0 = Release|Win32
-		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Debug|x64.ActiveCfg = Debug|x64
-		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Debug|x64.Build.0 = Debug|x64
-		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Debug|x86.ActiveCfg = Debug|x64
-		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Release|x64.ActiveCfg = Release|x64
-		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Release|x64.Build.0 = Release|x64
-		{4BE280A6-1066-41CA-ACDD-6BB7E532508B}.Release|x86.ActiveCfg = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

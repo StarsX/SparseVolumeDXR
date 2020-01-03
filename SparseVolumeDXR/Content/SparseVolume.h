@@ -15,11 +15,12 @@ public:
 
 	bool Init(const XUSG::RayTracing::CommandList& commandList, uint32_t width, uint32_t height,
 		XUSG::Format rtFormat, XUSG::Format dsFormat, std::vector<XUSG::Resource>& uploaders,
-		XUSG::RayTracing::Geometry& geometry, const char* fileName, const DirectX::XMFLOAT4& posScale);
+		XUSG::RayTracing::Geometry* pGeometries, const char* fileName,
+		const DirectX::XMFLOAT4& posScale);
 
 	void UpdateFrame(uint32_t frameIndex, DirectX::CXMMATRIX viewProj);
-	void Render(const XUSG::RayTracing::CommandList& commandList, uint32_t frameIndex,
-		const XUSG::Descriptor& rtv, const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
+	void Render(const XUSG::RayTracing::CommandList& commandList, const XUSG::Descriptor& rtv,
+		const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
 	void RenderDXR(const XUSG::RayTracing::CommandList& commandList, uint32_t frameIndex,
 		XUSG::RenderTarget& dst, const XUSG::Descriptor& dsv);
 
@@ -62,7 +63,6 @@ protected:
 		UAV_TABLE_KBUFFER,
 		UAV_TABLE_LS_KBUFFER,
 		UAV_TABLE_OUT_VIEW,
-		UAV_TABLE_THICKNESS,
 
 		NUM_UAV_TABLE
 	};
@@ -100,20 +100,16 @@ protected:
 	bool createPipelines(XUSG::Format rtFormat, XUSG::Format dsFormat);
 	bool createDescriptorTables();
 	bool buildAccelerationStructures(const XUSG::RayTracing::CommandList& commandList,
-		XUSG::RayTracing::Geometry* geometries);
+		XUSG::RayTracing::Geometry* pGeometries);
 	bool buildShaderTables();
 
-	void depthPeel(const XUSG::RayTracing::CommandList& commandList, uint32_t frameIndex,
+	void depthPeel(const XUSG::RayTracing::CommandList& commandList,
 		const XUSG::Descriptor& dsv, bool setPipeline = true);
-	void depthPeelLightSpace(const XUSG::RayTracing::CommandList& commandList,
-		uint32_t frameIndex, const XUSG::Descriptor& dsv);
-	void render(const XUSG::RayTracing::CommandList& commandList,
-		uint32_t frameIndex, const XUSG::Descriptor& rtv);
+	void depthPeelLightSpace(const XUSG::RayTracing::CommandList& commandList, const XUSG::Descriptor& dsv);
+	void render(const XUSG::RayTracing::CommandList& commandList, const XUSG::Descriptor& rtv);
 	void rayTrace(const XUSG::RayTracing::CommandList& commandList, uint32_t frameIndex);
 
 	XUSG::RayTracing::Device m_device;
-
-	static const uint32_t NumUAVs = 2;
 	XUSG::RayTracing::BottomLevelAS m_bottomLevelAS;
 	XUSG::RayTracing::TopLevelAS m_topLevelAS;
 
@@ -122,16 +118,15 @@ protected:
 	XUSG::RayTracing::Pipeline	m_rayTracingPipeline;
 	XUSG::Pipeline				m_pipelines[NUM_PIPELINE];
 
-	XUSG::DescriptorTable		m_srvTables[FrameCount];
-	XUSG::DescriptorTable		m_uavTables[NUM_UAV_TABLE][FrameCount];
+	XUSG::DescriptorTable		m_srvTable;
+	XUSG::DescriptorTable		m_uavTables[NUM_UAV_TABLE];
 
 	XUSG::VertexBuffer			m_vertexBuffer;
 	XUSG::IndexBuffer			m_indexBuffer;
 
-	XUSG::Texture2D				m_depthKBuffers[FrameCount];
-	XUSG::Texture2D				m_lsDepthKBuffers[FrameCount];
-	XUSG::Texture2D				m_outputViews[FrameCount];
-	XUSG::Texture2D				m_thicknesses[FrameCount];
+	XUSG::Texture2D				m_depthKBuffer;
+	XUSG::Texture2D				m_lsDepthKBuffer;
+	XUSG::Texture2D				m_outputView;
 
 	XUSG::Resource				m_scratch;
 	XUSG::Resource				m_instances;
@@ -144,7 +139,6 @@ protected:
 	// Shader tables
 	static const wchar_t* HitGroupName;
 	static const wchar_t* RaygenShaderName;
-	static const wchar_t* ClosestHitShaderName;
 	static const wchar_t* AnyHitShaderName;
 	static const wchar_t* MissShaderName;
 	XUSG::RayTracing::ShaderTable	m_missShaderTable;
@@ -162,4 +156,6 @@ protected:
 	DirectX::XMFLOAT4				m_bound;
 	DirectX::XMFLOAT4				m_posScale;
 	uint32_t						m_numIndices;
+
+	bool							m_useRayTracing;
 };

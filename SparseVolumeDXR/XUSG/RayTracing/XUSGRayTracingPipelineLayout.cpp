@@ -40,7 +40,7 @@ XUSG::PipelineLayout RayTracing::PipelineLayout::CreatePipelineLayout(const Devi
 	if (device.RaytracingAPI == RayTracing::API::FallbackLayer)
 	{
 		H_RETURN(device.Fallback->D3D12SerializeRootSignature(&layoutDesc.Desc_1_0, D3D_ROOT_SIGNATURE_VERSION_1, &signature,
-			&error, AccelerationStructure::NumUAVs), cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
+			&error, AccelerationStructure::GetUAVCount()), cerr, reinterpret_cast<wchar_t*>(error->GetBufferPointer()), nullptr);
 		V_RETURN(device.Fallback->CreateRootSignature(1, signature->GetBufferPointer(), signature->GetBufferSize(),
 			IID_PPV_ARGS(&layout)), cerr, nullptr);
 	}

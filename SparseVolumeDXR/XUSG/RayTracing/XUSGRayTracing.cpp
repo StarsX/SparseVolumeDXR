@@ -48,7 +48,7 @@ void RayTracing::CommandList::BuildRaytracingAccelerationStructure(const BuildDe
 		// Set the descriptor heaps to be used during acceleration structure build for the Fallback Layer.
 		m_fallback->SetDescriptorHeaps(1, descriptorPool.GetAddressOf());
 		m_fallback->BuildRaytracingAccelerationStructure(pDesc, numPostbuildInfoDescs,
-			pPostbuildInfoDescs, AccelerationStructure::NumUAVs);
+			pPostbuildInfoDescs, AccelerationStructure::GetUAVCount());
 	}
 	else // DirectX Raytracing
 #endif

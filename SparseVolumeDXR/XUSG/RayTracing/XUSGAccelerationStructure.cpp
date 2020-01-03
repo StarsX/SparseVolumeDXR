@@ -51,6 +51,17 @@ const WRAPPED_GPU_POINTER& AccelerationStructure::GetResultPointer() const
 {
 	return m_pointers[m_currentFrame];
 }
+
+uint32_t AccelerationStructure::GetUAVCount()
+{
+	return NumUAVs;
+}
+
+void AccelerationStructure::SetUAVCount(uint32_t numUAVs)
+{
+	NumUAVs = numUAVs;
+}
+
 #endif
 
 void AccelerationStructure::SetFrameCount(uint32_t frameCount)
@@ -131,13 +142,6 @@ bool AccelerationStructure::preBuild(const RayTracing::Device& device, uint32_t 
 
 	return true;
 }
-
-#if ENABLE_DXR_FALLBACK
-void AccelerationStructure::SetAccelerationStructureUAVsCount(uint32_t numUAVs)
-{
-	NumUAVs = numUAVs;
-}
-#endif
 
 //--------------------------------------------------------------------------------------
 // Bottom level acceleration structure

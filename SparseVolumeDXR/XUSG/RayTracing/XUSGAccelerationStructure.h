@@ -30,8 +30,11 @@ namespace XUSG
 			uint32_t GetUpdateScratchDataSize() const;
 #if ENABLE_DXR_FALLBACK
 			const WRAPPED_GPU_POINTER& GetResultPointer() const;
-#endif
 
+			static uint32_t GetUAVCount();
+
+			static void SetUAVCount(uint32_t numUAVs);
+#endif
 			static void SetFrameCount(uint32_t frameCount);
 
 			static bool AllocateUAVBuffer(const Device& device, Resource& resource,
@@ -53,8 +56,6 @@ namespace XUSG
 			uint32_t		m_currentFrame;
 
 #if ENABLE_DXR_FALLBACK
-			static void SetAccelerationStructureUAVsCount(uint32_t numUAVs);
-
 			static uint32_t NumUAVs;
 #endif
 			static uint32_t FrameCount;

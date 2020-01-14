@@ -62,12 +62,12 @@ private:
 
 	// App resources.
 	std::unique_ptr<SparseVolume> m_sparseVolume;
-	XUSG::DepthStencil		m_depth;
-	XUSG::DepthStencil		m_lsDepth;
-	DirectX::XMFLOAT4X4		m_proj;
-	DirectX::XMFLOAT4X4		m_view;
-	DirectX::XMFLOAT3		m_focusPt;
-	DirectX::XMFLOAT3		m_eyePt;
+	XUSG::DepthStencil	m_depth;
+	XUSG::DepthStencil	m_lsDepth;
+	DirectX::XMFLOAT4X4	m_proj;
+	DirectX::XMFLOAT4X4	m_view;
+	DirectX::XMFLOAT3	m_focusPt;
+	DirectX::XMFLOAT3	m_eyePt;
 
 	// Synchronization objects.
 	uint32_t	m_frameIndex;

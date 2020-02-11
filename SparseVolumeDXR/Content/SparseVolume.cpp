@@ -283,11 +283,10 @@ bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 
 	if (m_useRayTracing)
 	{
-		Blob shaderLib;
-		V_RETURN(D3DReadFileToBlob(L"SparseRayCast.cso", &shaderLib), cerr, false);
+		N_RETURN(m_shaderPool.CreateShader(Shader::Stage::CS, 0, L"SparseRayCast.cso"), false);
 
 		RayTracing::State state;
-		state.SetShaderLibrary(shaderLib);
+		state.SetShaderLibrary(m_shaderPool.GetShader(Shader::Stage::CS, 0));
 		state.SetHitGroup(0, HitGroupName, nullptr, AnyHitShaderName);
 		state.SetShaderConfig(sizeof(float), sizeof(XMFLOAT2));
 		state.SetLocalPipelineLayout(0, m_pipelineLayouts[RAY_GEN_LAYOUT],

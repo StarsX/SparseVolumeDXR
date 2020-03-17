@@ -356,7 +356,7 @@ bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList& co
 {
 	// Set geometries
 	const auto geometryFlags = GeometryFlags::NONE;
-	BottomLevelAS::SetGeometries(geometries, 1, Format::R32G32B32_FLOAT,
+	BottomLevelAS::SetTriangleGeometries(geometries, 1, Format::R32G32B32_FLOAT,
 		&m_vertexBuffer.GetVBV(), &m_indexBuffer.GetIBV(), &geometryFlags);
 
 	// Descriptor index in descriptor pool

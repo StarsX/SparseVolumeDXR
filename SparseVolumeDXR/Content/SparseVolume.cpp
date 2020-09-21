@@ -206,7 +206,7 @@ bool SparseVolume::createPipelineLayouts()
 	// Depth peeling pass
 	{
 		// Get pipeline layout
-		const auto pipelineLayout = Util::PipelineLayout ::MakeUnique();
+		const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
 		pipelineLayout->SetConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), 0);
 		pipelineLayout->SetRange(SRV_UAVS, DescriptorType::UAV, 1, 0, 0,
 			DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE);
@@ -219,7 +219,7 @@ bool SparseVolume::createPipelineLayouts()
 	// Sparse volume rendering pass with shadow mapping
 	{
 		// Get pipeline layout
-		const auto pipelineLayout = Util::PipelineLayout ::MakeUnique();
+		const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
 		pipelineLayout->SetConstants(CONSTANTS, SizeOfInUint32(PerObjConstants), 0);
 		pipelineLayout->SetRange(SRV_UAVS, DescriptorType::SRV, 2, 0);
 		pipelineLayout->SetShaderStage(CONSTANTS, Shader::Stage::PS);
@@ -232,7 +232,7 @@ bool SparseVolume::createPipelineLayouts()
 	// This is a pipeline layout that is shared across all raytracing shaders invoked during a DispatchRays() call.
 	if (m_useRayTracing)
 	{
-		const auto pipelineLayout = RayTracing::PipelineLayout ::MakeUnique();
+		const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
 		pipelineLayout->SetRange(OUTPUT_VIEW, DescriptorType::UAV, 1, 0);
 		pipelineLayout->SetRootSRV(ACCELERATION_STRUCTURE, 0);
 		pipelineLayout->SetRange(DEPTH_K_BUFFERS, DescriptorType::SRV, 1, 1);
@@ -244,7 +244,7 @@ bool SparseVolume::createPipelineLayouts()
 	// This is a pipeline layout that enables a shader to have unique arguments that come from shader tables.
 	if (m_useRayTracing)
 	{
-		const auto pipelineLayout = RayTracing::PipelineLayout ::MakeUnique();
+		const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
 		pipelineLayout->SetConstants(CONSTANTS, SizeOfInUint32(RayGenConstants), 0);
 		X_RETURN(m_pipelineLayouts[RAY_GEN_LAYOUT], pipelineLayout->GetPipelineLayout(m_device, *m_pipelineLayoutCache,
 			PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT, L"RayTracerRayGenPipelineLayout"), false);

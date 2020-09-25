@@ -101,7 +101,7 @@ void SparseVolumeDXR::LoadPipeline()
 	swapChainDesc.BufferCount = FrameCount;
 	swapChainDesc.Width = m_width;
 	swapChainDesc.Height = m_height;
-	swapChainDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+	swapChainDesc.Format = GetDXGIFormat(Format::R8G8B8A8_UNORM);
 	swapChainDesc.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
 	swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_DISCARD;
 	swapChainDesc.SampleDesc.Count = 1;
@@ -150,7 +150,7 @@ void SparseVolumeDXR::LoadAssets()
 	if (m_isDxrSupported) CreateRaytracingInterfaces();
 
 	m_lsDepth = DepthStencil::MakeUnique();
-	m_lsDepth->Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, static_cast<Format>(m_depth->GetResource()->GetDesc().Format),
+	m_lsDepth->Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, m_depth->GetFormat(),
 		ResourceFlag::DENY_SHADER_RESOURCE);
 
 	m_sparseVolume = make_unique<SparseVolume>(m_device);
@@ -158,8 +158,8 @@ void SparseVolumeDXR::LoadAssets()
 
 	vector<Resource> uploaders(0);
 	Geometry geometry;
-	if (!m_sparseVolume->Init(pCommandList, m_width, m_height, static_cast<Format>(m_renderTargets[0]->GetResource()->GetDesc().Format),
-		static_cast<Format>(m_depth->GetResource()->GetDesc().Format), uploaders, m_isDxrSupported ? &geometry : nullptr,
+	if (!m_sparseVolume->Init(pCommandList, m_width, m_height, m_renderTargets[0]->GetFormat(),
+		m_depth->GetFormat(), uploaders, m_isDxrSupported ? &geometry : nullptr,
 		m_meshFileName.c_str(), m_meshPosScale))
 		ThrowIfFailed(E_FAIL);
 

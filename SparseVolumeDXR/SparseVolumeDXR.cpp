@@ -470,5 +470,5 @@ void SparseVolumeDXR::CreateRaytracingInterfaces()
 	if (FAILED(hr)) OutputDebugString(L"Couldn't get DirectX Raytracing interface for the device.\n");
 	ThrowIfFailed(hr);
 
-	m_commandList->CreateRaytracingInterfaces(m_device);
+	m_commandList->CreateInterface();
 }

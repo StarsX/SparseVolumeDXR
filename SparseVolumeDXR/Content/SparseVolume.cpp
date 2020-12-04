@@ -22,10 +22,10 @@ SparseVolume::SparseVolume(const RayTracing::Device& device) :
 {
 	m_shaderPool = ShaderPool::MakeUnique();
 	m_rayTracingPipelineCache = RayTracing::PipelineCache::MakeUnique(device);
-	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(device.Common);
-	m_computePipelineCache = Compute::PipelineCache::MakeUnique(device.Common);
-	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(device.Common);
-	m_descriptorTableCache = DescriptorTableCache::MakeUnique(device.Common, L"RayTracerDescriptorTableCache");
+	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(device);
+	m_computePipelineCache = Compute::PipelineCache::MakeUnique(device);
+	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(device);
+	m_descriptorTableCache = DescriptorTableCache::MakeUnique(device, L"RayTracerDescriptorTableCache");
 }
 
 SparseVolume::~SparseVolume()
@@ -58,15 +58,15 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, u
 
 	// Create output grids and build acceleration structures
 	m_depthKBuffer = Texture2D::MakeUnique();
-	N_RETURN(m_depthKBuffer->Create(m_device.Common, width, height, Format::R32_UINT, NUM_K_LAYERS,
+	N_RETURN(m_depthKBuffer->Create(m_device, width, height, Format::R32_UINT, NUM_K_LAYERS,
 		ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS), false);
 
 	m_lsDepthKBuffer = Texture2D::MakeUnique();
-	N_RETURN(m_lsDepthKBuffer->Create(m_device.Common, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, Format::R32_UINT,
+	N_RETURN(m_lsDepthKBuffer->Create(m_device, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, Format::R32_UINT,
 		NUM_K_LAYERS, ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS), false);
 
 	m_outputView = Texture2D::MakeUnique();
-	N_RETURN(m_outputView->Create(m_device.Common, width, height, rtFormat, 1,
+	N_RETURN(m_outputView->Create(m_device, width, height, rtFormat, 1,
 		ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 
 	// Initialize world transform
@@ -164,7 +164,7 @@ bool SparseVolume::createVB(XUSG::CommandList* pCommandList, uint32_t numVert,
 	uint32_t stride, const uint8_t* pData, vector<Resource>& uploaders)
 {
 	m_vertexBuffer = VertexBuffer::MakeUnique();
-	N_RETURN(m_vertexBuffer->Create(m_device.Common, numVert, stride,
+	N_RETURN(m_vertexBuffer->Create(m_device, numVert, stride,
 		ResourceFlag::NONE, MemoryType::DEFAULT), false);
 	uploaders.push_back(nullptr);
 
@@ -179,7 +179,7 @@ bool SparseVolume::createIB(XUSG::CommandList* pCommandList, uint32_t numIndices
 	const uint32_t byteWidth = sizeof(uint32_t) * numIndices;
 
 	m_indexBuffer = IndexBuffer::MakeUnique();
-	N_RETURN(m_indexBuffer->Create(m_device.Common, byteWidth, Format::R32_UINT,
+	N_RETURN(m_indexBuffer->Create(m_device, byteWidth, Format::R32_UINT,
 		ResourceFlag::NONE, MemoryType::DEFAULT), false);
 	uploaders.push_back(nullptr);
 
@@ -299,9 +299,7 @@ bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 			1, reinterpret_cast<const void**>(&RaygenShaderName));
 		state->SetGlobalPipelineLayout(m_pipelineLayouts[GLOBAL_LAYOUT]);
 		state->SetMaxRecursionDepth(1);
-		m_rayTracingPipeline = state->GetPipeline(*m_rayTracingPipelineCache, L"SparseRayCastDXR");
-
-		N_RETURN(m_rayTracingPipeline.Native, false);
+		X_RETURN(m_rayTracingPipeline, state->GetPipeline(*m_rayTracingPipelineCache, L"SparseRayCastDXR"), false);
 	}
 
 	return true;

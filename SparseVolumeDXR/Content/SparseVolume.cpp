@@ -406,6 +406,7 @@ bool SparseVolume::buildShaderTables()
 {
 	// Get shader identifiers.
 	const auto shaderIDSize = ShaderRecord::GetShaderIDSize(m_device);
+	const RayGenConstants rayGenConsts = {};
 
 	for (auto i = 0ui8; i < FrameCount; ++i)
 	{
@@ -414,7 +415,7 @@ bool SparseVolume::buildShaderTables()
 		N_RETURN(m_rayGenShaderTables[i]->Create(m_device, 1, shaderIDSize + sizeof(RayGenConstants),
 			(L"RayGenShaderTable" + to_wstring(i)).c_str()), false);
 		N_RETURN(m_rayGenShaderTables[i]->AddShaderRecord(*ShaderRecord::MakeUnique(m_device,
-			m_rayTracingPipeline, RaygenShaderName, &RayGenConstants(), sizeof(RayGenConstants))), false);
+			m_rayTracingPipeline, RaygenShaderName, &rayGenConsts, sizeof(RayGenConstants))), false);
 	}
 
 	// Hit group shader table

@@ -190,13 +190,13 @@ bool SparseVolume::createIB(XUSG::CommandList* pCommandList, uint32_t numIndices
 bool SparseVolume::createInputLayout()
 {
 	// Define the vertex input layout.
-	InputElementTable inputElementDescs =
+	const InputElement inputElements[] =
 	{
 		{ "POSITION",	0, Format::R32G32B32_FLOAT, 0, 0,						InputClassification::PER_VERTEX_DATA, 0 },
 		{ "NORMAL",		0, Format::R32G32B32_FLOAT, 0, APPEND_ALIGNED_ELEMENT,	InputClassification::PER_VERTEX_DATA, 0 }
 	};
 
-	X_RETURN(m_inputLayout, m_graphicsPipelineCache->CreateInputLayout(inputElementDescs), false);
+	X_RETURN(m_pInputLayout, m_graphicsPipelineCache->CreateInputLayout(inputElements, static_cast<uint32_t>(size(inputElements))), false);
 
 	return true;
 }
@@ -208,8 +208,7 @@ bool SparseVolume::createPipelineLayouts()
 		// Get pipeline layout
 		const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
 		pipelineLayout->SetConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), 0);
-		pipelineLayout->SetRange(SRV_UAVS, DescriptorType::UAV, 1, 0, 0,
-			DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE);
+		pipelineLayout->SetRange(SRV_UAVS, DescriptorType::UAV, 1, 0, 0, DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE);
 		pipelineLayout->SetShaderStage(CONSTANTS, Shader::Stage::VS);
 		pipelineLayout->SetShaderStage(SRV_UAVS, Shader::Stage::PS);
 		X_RETURN(m_pipelineLayouts[DEPTH_PEEL_LAYOUT], pipelineLayout->GetPipelineLayout(*m_pipelineLayoutCache,
@@ -234,7 +233,7 @@ bool SparseVolume::createPipelineLayouts()
 	{
 		const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
 		pipelineLayout->SetRange(OUTPUT_VIEW, DescriptorType::UAV, 1, 0);
-		pipelineLayout->SetRootSRV(ACCELERATION_STRUCTURE, 0);
+		pipelineLayout->SetRootSRV(ACCELERATION_STRUCTURE, 0, 0, DescriptorFlag::DATA_STATIC);
 		pipelineLayout->SetRange(DEPTH_K_BUFFERS, DescriptorType::SRV, 1, 1);
 		X_RETURN(m_pipelineLayouts[GLOBAL_LAYOUT], pipelineLayout->GetPipelineLayout(m_device, *m_pipelineLayoutCache,
 			PipelineLayoutFlag::NONE, L"RayTracerGlobalPipelineLayout"), false);
@@ -265,7 +264,7 @@ bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 		state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, PS_DEPTH_PEEL));
 		state->RSSetState(Graphics::RasterizerPreset::CULL_NONE, *m_graphicsPipelineCache);
 		state->DSSetState(Graphics::DepthStencilPreset::DEPTH_READ_LESS, *m_graphicsPipelineCache);
-		state->IASetInputLayout(m_inputLayout);
+		state->IASetInputLayout(m_pInputLayout);
 		state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
 		state->OMSetDSVFormat(dsFormat);
 

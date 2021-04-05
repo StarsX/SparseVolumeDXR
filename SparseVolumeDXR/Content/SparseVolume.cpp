@@ -407,7 +407,7 @@ bool SparseVolume::buildShaderTables()
 	const auto shaderIDSize = ShaderRecord::GetShaderIDSize(m_device);
 	const RayGenConstants rayGenConsts = {};
 
-	for (auto i = 0ui8; i < FrameCount; ++i)
+	for (uint8_t i = 0; i < FrameCount; ++i)
 	{
 		// Ray gen shader table
 		m_rayGenShaderTables[i] = ShaderTable::MakeUnique();
@@ -526,7 +526,7 @@ void SparseVolume::render(const RayTracing::CommandList* pCommandList, const Des
 	pCommandList->Draw(3, 1, 0, 0);
 }
 
-void SparseVolume::rayTrace(const RayTracing::CommandList* pCommandList, uint32_t frameIndex)
+void SparseVolume::rayTrace(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
 {
 	// Set resource barrier
 	ResourceBarrier barrier;

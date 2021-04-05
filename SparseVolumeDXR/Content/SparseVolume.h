@@ -17,13 +17,13 @@ public:
 		XUSG::RayTracing::Geometry* pGeometries, const char* fileName,
 		const DirectX::XMFLOAT4& posScale);
 
-	void UpdateFrame(uint32_t frameIndex, DirectX::CXMMATRIX viewProj);
+	void UpdateFrame(uint8_t frameIndex, DirectX::CXMMATRIX viewProj);
 	void Render(const XUSG::RayTracing::CommandList* pCommandList, const XUSG::Descriptor& rtv,
 		const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
-	void RenderDXR(const XUSG::RayTracing::CommandList* pCommandList, uint32_t frameIndex,
+	void RenderDXR(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
 		XUSG::RenderTarget& dst, const XUSG::Descriptor& dsv);
 
-	static const uint32_t FrameCount = 3;
+	static const uint8_t FrameCount = 3;
 
 protected:
 	enum PipelineLayoutIndex : uint8_t
@@ -106,7 +106,7 @@ protected:
 		const XUSG::Descriptor& dsv, bool setPipeline = true);
 	void depthPeelLightSpace(const XUSG::RayTracing::CommandList* pCommandList, const XUSG::Descriptor& dsv);
 	void render(const XUSG::RayTracing::CommandList* pCommandList, const XUSG::Descriptor& rtv);
-	void rayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint32_t frameIndex);
+	void rayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
 	XUSG::RayTracing::Device m_device;
 	XUSG::RayTracing::BottomLevelAS::uptr m_bottomLevelAS;

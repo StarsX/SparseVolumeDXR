@@ -83,7 +83,7 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, u
 	return true;
 }
 
-void SparseVolume::UpdateFrame(uint32_t frameIndex, CXMMATRIX viewProj)
+void SparseVolume::UpdateFrame(uint8_t frameIndex, CXMMATRIX viewProj)
 {
 	// General matrices
 	//const auto world = XMMatrixScaling(m_bound.w, m_bound.w, m_bound.w) *
@@ -142,7 +142,7 @@ void SparseVolume::Render(const RayTracing::CommandList* pCommandList, const Des
 }
 
 void SparseVolume::RenderDXR(const RayTracing::CommandList* pCommandList,
-	uint32_t frameIndex, RenderTarget& dst, const Descriptor& dsv)
+	uint8_t frameIndex, RenderTarget& dst, const Descriptor& dsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL) };
 	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);

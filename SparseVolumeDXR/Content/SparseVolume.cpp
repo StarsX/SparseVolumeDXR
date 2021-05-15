@@ -531,7 +531,7 @@ void SparseVolume::render(const RayTracing::CommandList* pCommandList, uint8_t f
 
 	// Set descriptor tables
 	pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT]);
-	pCommandList->SetGraphicsRootConstantBufferView(CONSTANTS, m_cbPerFrame->GetResource(), m_cbPerFrame->GetCBVOffset());
+	pCommandList->SetGraphicsRootConstantBufferView(CONSTANTS, m_cbPerFrame->GetResource(), m_cbPerFrame->GetCBVOffset(frameIndex));
 	pCommandList->SetGraphicsDescriptorTable(SRV_UAVS, m_srvTable);
 
 	// Set pipeline state

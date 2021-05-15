@@ -369,7 +369,7 @@ void SparseVolumeDXR::PopulateCommandList()
 
 	// Voxelizer rendering
 	if (m_useRayTracing) m_sparseVolume->RenderDXR(pCommandList, m_frameIndex, *m_renderTargets[m_frameIndex], m_depth->GetDSV());
-	else m_sparseVolume->Render(pCommandList, m_renderTargets[m_frameIndex]->GetRTV(), m_depth->GetDSV(), m_lsDepth->GetDSV());
+	else m_sparseVolume->Render(pCommandList, m_frameIndex, m_renderTargets[m_frameIndex]->GetRTV(), m_depth->GetDSV(), m_lsDepth->GetDSV());
 
 	// Indicate that the back buffer will now be used to present.
 	const auto numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(&barrier, ResourceState::PRESENT);

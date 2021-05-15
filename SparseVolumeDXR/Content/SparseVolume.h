@@ -18,8 +18,8 @@ public:
 		const DirectX::XMFLOAT4& posScale);
 
 	void UpdateFrame(uint8_t frameIndex, DirectX::CXMMATRIX viewProj);
-	void Render(const XUSG::RayTracing::CommandList* pCommandList, const XUSG::Descriptor& rtv,
-		const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
+	void Render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
+		const XUSG::Descriptor& rtv, const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
 	void RenderDXR(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
 		XUSG::RenderTarget& dst, const XUSG::Descriptor& dsv);
 
@@ -78,18 +78,6 @@ protected:
 		PS_SPARSE_RAYCAST
 	};
 
-	struct PerObjConstants
-	{
-		DirectX::XMFLOAT4X4	ScreenToWorld;
-		DirectX::XMFLOAT4X4	ViewProjLS;
-	};
-
-	struct RayGenConstants
-	{
-		DirectX::XMFLOAT4X4	ScreenToWorld;
-		DirectX::XMFLOAT4	LightDir;
-	};
-
 	bool createVB(XUSG::CommandList* pCommandList, uint32_t numVert,
 		uint32_t stride, const uint8_t* pData, std::vector<XUSG::Resource>& uploaders);
 	bool createIB(XUSG::CommandList* pCommandList, uint32_t numIndices,
@@ -103,9 +91,10 @@ protected:
 	bool buildShaderTables();
 
 	void depthPeel(const XUSG::RayTracing::CommandList* pCommandList,
-		const XUSG::Descriptor& dsv, bool setPipeline = true);
-	void depthPeelLightSpace(const XUSG::RayTracing::CommandList* pCommandList, const XUSG::Descriptor& dsv);
-	void render(const XUSG::RayTracing::CommandList* pCommandList, const XUSG::Descriptor& rtv);
+		uint8_t frameIndex, const XUSG::Descriptor& dsv, bool setPipeline = true);
+	void depthPeelLightSpace(const XUSG::RayTracing::CommandList* pCommandList,
+		uint8_t frameIndex, const XUSG::Descriptor& dsv);
+	void render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex, const XUSG::Descriptor& rtv);
 	void rayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
 	XUSG::RayTracing::Device m_device;
@@ -125,15 +114,16 @@ protected:
 
 	XUSG::Texture2D::uptr		m_depthKBuffer;
 	XUSG::Texture2D::uptr		m_lsDepthKBuffer;
-	XUSG::Texture2D::uptr			m_outputView;
+	XUSG::Texture2D::uptr		m_outputView;
+
+	XUSG::ConstantBuffer::uptr	m_cbDepthPeel;
+	XUSG::ConstantBuffer::uptr	m_cbDepthPeelLS;
+	XUSG::ConstantBuffer::uptr	m_cbPerFrame;
 
 	XUSG::Resource				m_scratch;
 	XUSG::Resource				m_instances;
 
 	DirectX::XMFLOAT4X4			m_world;
-	DirectX::XMFLOAT4X4			m_worldViewProj;
-	DirectX::XMFLOAT4X4			m_worldViewProjLS;
-	PerObjConstants				m_cbPerObject;
 
 	// Shader tables
 	static const wchar_t* HitGroupName;

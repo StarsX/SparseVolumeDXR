@@ -11,6 +11,18 @@ using namespace DirectX;
 using namespace XUSG;
 using namespace XUSG::RayTracing;
 
+struct CBPerFrame
+{
+	DirectX::XMFLOAT4X4	ScreenToWorld;
+	DirectX::XMFLOAT4X4	ViewProjLS;
+};
+
+struct RayGenConstants
+{
+	DirectX::XMFLOAT4X4	ScreenToWorld;
+	DirectX::XMFLOAT4	LightDir;
+};
+
 const wchar_t* SparseVolume::HitGroupName = L"hitGroup";
 const wchar_t* SparseVolume::RaygenShaderName = L"raygenMain";
 const wchar_t* SparseVolume::AnyHitShaderName = L"anyHitMain";
@@ -69,6 +81,16 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, u
 	N_RETURN(m_outputView->Create(m_device, width, height, rtFormat, 1,
 		ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 
+	// Create constant buffers
+	m_cbDepthPeel = ConstantBuffer::MakeUnique();
+	N_RETURN(m_cbDepthPeel->Create(m_device, sizeof(XMFLOAT4X4[FrameCount]), FrameCount, nullptr, MemoryType::UPLOAD, L"CBDepthPeel"), false);
+
+	m_cbDepthPeelLS = ConstantBuffer::MakeUnique();
+	N_RETURN(m_cbDepthPeelLS->Create(m_device, sizeof(XMFLOAT4X4[FrameCount]), FrameCount, nullptr, MemoryType::UPLOAD, L"CBDepthPeelLS"), false);
+
+	m_cbPerFrame = ConstantBuffer::MakeUnique();
+	N_RETURN(m_cbPerFrame->Create(m_device, sizeof(CBPerFrame[FrameCount]), FrameCount, nullptr, MemoryType::UPLOAD, L"CBPerFrame"), false);
+
 	// Initialize world transform
 	const auto world = XMMatrixIdentity();
 	XMStoreFloat4x4(&m_world, XMMatrixTranspose(world));
@@ -90,9 +112,11 @@ void SparseVolume::UpdateFrame(uint8_t frameIndex, CXMMATRIX viewProj)
 		//XMMatrixTranslation(m_bound.x, m_bound.y, m_bound.z);
 	const auto world = XMMatrixScaling(m_posScale.w, m_posScale.w, m_posScale.w) *
 		XMMatrixTranslation(m_posScale.x, m_posScale.y, m_posScale.z);
-	const auto worldViewProj = world * viewProj;
 	XMStoreFloat4x4(&m_world, XMMatrixTranspose(world));
-	XMStoreFloat4x4(&m_worldViewProj, XMMatrixTranspose(worldViewProj));
+	{
+		const auto pCbData = reinterpret_cast<XMFLOAT4X4*>(m_cbDepthPeel->Map(frameIndex));
+		XMStoreFloat4x4(pCbData, XMMatrixTranspose(world * viewProj));
+	}
 
 	// Light-space matrices
 	const auto focusPt = XMLoadFloat4(&m_bound);
@@ -100,9 +124,12 @@ void SparseVolume::UpdateFrame(uint8_t frameIndex, CXMMATRIX viewProj)
 	const auto viewLS = XMMatrixLookAtLH(lightPt, focusPt, XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f));
 	const auto projLS = XMMatrixOrthographicLH(m_bound.w * 3.0f, m_bound.w * 3.0f, g_zNearLS, g_zFarLS);
 	const auto viewProjLS = viewLS * projLS;
-	const auto worldViewProjLS = world * viewProjLS;
-	XMStoreFloat4x4(&m_cbPerObject.ViewProjLS, XMMatrixTranspose(viewProjLS));
-	XMStoreFloat4x4(&m_worldViewProjLS, XMMatrixTranspose(worldViewProjLS));
+	const auto pCbData = reinterpret_cast<CBPerFrame*>(m_cbPerFrame->Map(frameIndex));
+	XMStoreFloat4x4(&pCbData->ViewProjLS, XMMatrixTranspose(viewProjLS));
+	{
+		const auto pCbData = reinterpret_cast<XMFLOAT4X4*>(m_cbDepthPeelLS->Map(frameIndex));
+		XMStoreFloat4x4(pCbData, XMMatrixTranspose(world * viewProjLS));
+	}
 
 	// Screen space matrices
 	const auto toScreen = XMMATRIX
@@ -114,13 +141,13 @@ void SparseVolume::UpdateFrame(uint8_t frameIndex, CXMMATRIX viewProj)
 	);
 	const auto worldToScreen = viewProj * toScreen;
 	const auto screenToWorld = XMMatrixInverse(nullptr, worldToScreen);
-	XMStoreFloat4x4(&m_cbPerObject.ScreenToWorld, XMMatrixTranspose(screenToWorld));
+	XMStoreFloat4x4(&pCbData->ScreenToWorld, XMMatrixTranspose(screenToWorld));
 
 	// Ray tracing
 	if (m_useRayTracing)
 	{
 		RayGenConstants cbRayGen;
-		cbRayGen.ScreenToWorld = m_cbPerObject.ScreenToWorld;
+		cbRayGen.ScreenToWorld = pCbData->ScreenToWorld;
 		XMStoreFloat4(&cbRayGen.LightDir, XMVector3Normalize(lightPt - focusPt));
 
 		m_rayGenShaderTables[frameIndex]->Reset();
@@ -129,16 +156,16 @@ void SparseVolume::UpdateFrame(uint8_t frameIndex, CXMMATRIX viewProj)
 	}
 }
 
-void SparseVolume::Render(const RayTracing::CommandList* pCommandList, const Descriptor& rtv,
-	const Descriptor& dsv, const Descriptor& lsDsv)
+void SparseVolume::Render(const RayTracing::CommandList* pCommandList, uint8_t frameIndex,
+	const Descriptor& rtv, const Descriptor& dsv, const Descriptor& lsDsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL) };
 	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
-	depthPeelLightSpace(pCommandList, lsDsv);
-	depthPeel(pCommandList, dsv, false);
+	depthPeelLightSpace(pCommandList, frameIndex, lsDsv);
+	depthPeel(pCommandList, frameIndex, dsv, false);
 
-	render(pCommandList, rtv);
+	render(pCommandList, frameIndex, rtv);
 }
 
 void SparseVolume::RenderDXR(const RayTracing::CommandList* pCommandList,
@@ -147,7 +174,7 @@ void SparseVolume::RenderDXR(const RayTracing::CommandList* pCommandList,
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL) };
 	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
-	depthPeel(pCommandList, dsv);
+	depthPeel(pCommandList, frameIndex, dsv);
 	rayTrace(pCommandList, frameIndex);
 
 	ResourceBarrier barriers[2];
@@ -207,9 +234,8 @@ bool SparseVolume::createPipelineLayouts()
 	{
 		// Get pipeline layout
 		const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
-		pipelineLayout->SetConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), 0);
+		pipelineLayout->SetRootCBV(CONSTANTS, 0, 0, Shader::Stage::VS);
 		pipelineLayout->SetRange(SRV_UAVS, DescriptorType::UAV, 1, 0, 0, DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE);
-		pipelineLayout->SetShaderStage(CONSTANTS, Shader::Stage::VS);
 		pipelineLayout->SetShaderStage(SRV_UAVS, Shader::Stage::PS);
 		X_RETURN(m_pipelineLayouts[DEPTH_PEEL_LAYOUT], pipelineLayout->GetPipelineLayout(*m_pipelineLayoutCache,
 			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"DepthPeelingLayout"), false);
@@ -219,9 +245,8 @@ bool SparseVolume::createPipelineLayouts()
 	{
 		// Get pipeline layout
 		const auto pipelineLayout = Util::PipelineLayout::MakeUnique();
-		pipelineLayout->SetConstants(CONSTANTS, SizeOfInUint32(PerObjConstants), 0);
+		pipelineLayout->SetRootCBV(CONSTANTS, 0, 0, Shader::Stage::PS);
 		pipelineLayout->SetRange(SRV_UAVS, DescriptorType::SRV, 2, 0);
-		pipelineLayout->SetShaderStage(CONSTANTS, Shader::Stage::PS);
 		pipelineLayout->SetShaderStage(SRV_UAVS, Shader::Stage::PS);
 		X_RETURN(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT], pipelineLayout->GetPipelineLayout(*m_pipelineLayoutCache,
 			PipelineLayoutFlag::NONE, L"SparseRayCastLayout"), false);
@@ -431,7 +456,7 @@ bool SparseVolume::buildShaderTables()
 }
 
 void SparseVolume::depthPeel(const RayTracing::CommandList* pCommandList,
-	const Descriptor& dsv, bool setPipeline)
+	uint8_t frameIndex, const Descriptor& dsv, bool setPipeline)
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
@@ -439,7 +464,7 @@ void SparseVolume::depthPeel(const RayTracing::CommandList* pCommandList,
 
 	// Set descriptor tables
 	pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
-	pCommandList->SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), &m_worldViewProj);
+	pCommandList->SetGraphicsRootConstantBufferView(CONSTANTS, m_cbDepthPeel->GetResource(), m_cbDepthPeel->GetCBVOffset(frameIndex));
 	pCommandList->SetGraphicsDescriptorTable(SRV_UAVS, m_uavTables[UAV_TABLE_KBUFFER]);
 
 	// Set pipeline state
@@ -463,7 +488,8 @@ void SparseVolume::depthPeel(const RayTracing::CommandList* pCommandList,
 	pCommandList->DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
-void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList* pCommandList, const Descriptor& dsv)
+void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList* pCommandList,
+	uint8_t frameIndex, const Descriptor& dsv)
 {
 	// Set resource barrier
 	ResourceBarrier barrier;
@@ -471,8 +497,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList* pCommandLi
 
 	// Set descriptor tables
 	pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
-
-	pCommandList->SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(XMFLOAT4X4), &m_worldViewProjLS);
+	pCommandList->SetGraphicsRootConstantBufferView(CONSTANTS, m_cbDepthPeelLS->GetResource(), m_cbDepthPeelLS->GetCBVOffset(frameIndex));
 	pCommandList->SetGraphicsDescriptorTable(SRV_UAVS, m_uavTables[UAV_TABLE_LS_KBUFFER]);
 
 	// Set pipeline state
@@ -496,7 +521,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList* pCommandLi
 	pCommandList->DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
-void SparseVolume::render(const RayTracing::CommandList* pCommandList, const Descriptor& rtv)
+void SparseVolume::render(const RayTracing::CommandList* pCommandList, uint8_t frameIndex, const Descriptor& rtv)
 {
 	// Set resource barriers
 	ResourceBarrier barriers[2];
@@ -506,8 +531,7 @@ void SparseVolume::render(const RayTracing::CommandList* pCommandList, const Des
 
 	// Set descriptor tables
 	pCommandList->SetGraphicsPipelineLayout(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT]);
-
-	pCommandList->SetGraphics32BitConstants(CONSTANTS, SizeOfInUint32(PerObjConstants), &m_cbPerObject);
+	pCommandList->SetGraphicsRootConstantBufferView(CONSTANTS, m_cbPerFrame->GetResource(), m_cbPerFrame->GetCBVOffset());
 	pCommandList->SetGraphicsDescriptorTable(SRV_UAVS, m_srvTable);
 
 	// Set pipeline state

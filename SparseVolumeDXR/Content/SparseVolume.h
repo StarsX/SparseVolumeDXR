@@ -9,19 +9,19 @@
 class SparseVolume
 {
 public:
-	SparseVolume(const XUSG::RayTracing::Device& device);
+	SparseVolume(const XUSG::RayTracing::Device::sptr& device);
 	virtual ~SparseVolume();
 
 	bool Init(XUSG::RayTracing::CommandList* pCommandList, uint32_t width, uint32_t height,
-		XUSG::Format rtFormat, XUSG::Format dsFormat, std::vector<XUSG::Resource>& uploaders,
-		XUSG::RayTracing::Geometry* pGeometries, const char* fileName,
+		XUSG::Format rtFormat, XUSG::Format dsFormat, std::vector<XUSG::Resource::uptr>& uploaders,
+		XUSG::RayTracing::GeometryBuffer* pGeometry, const char* fileName,
 		const DirectX::XMFLOAT4& posScale);
 
 	void UpdateFrame(uint8_t frameIndex, DirectX::CXMMATRIX viewProj);
 	void Render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
 		const XUSG::Descriptor& rtv, const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
 	void RenderDXR(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
-		XUSG::RenderTarget& dst, const XUSG::Descriptor& dsv);
+		XUSG::RenderTarget* pDst, const XUSG::Descriptor& dsv);
 
 	static const uint8_t FrameCount = 3;
 
@@ -53,6 +53,7 @@ protected:
 	{
 		DEPTH_PEEL,
 		SPARSE_RAYCAST,
+		RAY_TRACING,
 
 		NUM_PIPELINE
 	};
@@ -79,15 +80,15 @@ protected:
 	};
 
 	bool createVB(XUSG::CommandList* pCommandList, uint32_t numVert,
-		uint32_t stride, const uint8_t* pData, std::vector<XUSG::Resource>& uploaders);
+		uint32_t stride, const uint8_t* pData, std::vector<XUSG::Resource::uptr>& uploaders);
 	bool createIB(XUSG::CommandList* pCommandList, uint32_t numIndices,
-		const uint32_t* pData, std::vector<XUSG::Resource>& uploaders);
+		const uint32_t* pData, std::vector<XUSG::Resource::uptr>& uploaders);
 	bool createInputLayout();
 	bool createPipelineLayouts();
 	bool createPipelines(XUSG::Format rtFormat, XUSG::Format dsFormat);
 	bool createDescriptorTables();
 	bool buildAccelerationStructures(const XUSG::RayTracing::CommandList* pCommandList,
-		XUSG::RayTracing::Geometry* pGeometries);
+		XUSG::RayTracing::GeometryBuffer* pGeometry);
 	bool buildShaderTables();
 
 	void depthPeel(const XUSG::RayTracing::CommandList* pCommandList,
@@ -97,13 +98,12 @@ protected:
 	void render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex, const XUSG::Descriptor& rtv);
 	void rayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
-	XUSG::RayTracing::Device m_device;
+	XUSG::RayTracing::Device::sptr m_device;
 	XUSG::RayTracing::BottomLevelAS::uptr m_bottomLevelAS;
 	XUSG::RayTracing::TopLevelAS::uptr m_topLevelAS;
 
 	const XUSG::InputLayout*	m_pInputLayout;
 	XUSG::PipelineLayout		m_pipelineLayouts[NUM_PIPELINE_LAYOUT];
-	XUSG::RayTracing::Pipeline	m_rayTracingPipeline;
 	XUSG::Pipeline				m_pipelines[NUM_PIPELINE];
 
 	XUSG::DescriptorTable		m_srvTable;
@@ -120,10 +120,10 @@ protected:
 	XUSG::ConstantBuffer::uptr	m_cbDepthPeelLS;
 	XUSG::ConstantBuffer::uptr	m_cbPerFrame;
 
-	XUSG::Resource				m_scratch;
-	XUSG::Resource				m_instances;
+	XUSG::Resource::uptr		m_scratch;
+	XUSG::Resource::uptr		m_instances;
 
-	DirectX::XMFLOAT4X4			m_world;
+	DirectX::XMFLOAT3X4			m_world;
 
 	// Shader tables
 	static const wchar_t* HitGroupName;

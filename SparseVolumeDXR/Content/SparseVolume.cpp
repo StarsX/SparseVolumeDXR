@@ -400,6 +400,7 @@ bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList* pC
 	// Create scratch buffer
 	auto scratchSize = m_topLevelAS->GetScratchDataMaxSize();
 	scratchSize = (max)(m_bottomLevelAS->GetScratchDataMaxSize(), scratchSize);
+	m_scratch = Resource::MakeUnique();
 	N_RETURN(AccelerationStructure::AllocateUAVBuffer(m_device.get(), m_scratch.get(), scratchSize), false);
 
 	// Get descriptor pool and create descriptor tables
@@ -408,6 +409,7 @@ bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList* pC
 
 	// Set instance
 	float* const pTransform[] = { reinterpret_cast<float*>(&m_world) };
+	m_instances = Resource::MakeUnique();
 	const BottomLevelAS* ppBottomLevelAS[] = { m_bottomLevelAS.get() };
 	TopLevelAS::SetInstances(m_device.get(), m_instances.get(), 1, ppBottomLevelAS, pTransform);
 

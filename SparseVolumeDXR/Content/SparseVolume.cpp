@@ -84,13 +84,16 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, u
 
 	// Create constant buffers
 	m_cbDepthPeel = ConstantBuffer::MakeUnique();
-	N_RETURN(m_cbDepthPeel->Create(m_device.get(), sizeof(XMFLOAT4X4[FrameCount]), FrameCount, nullptr, MemoryType::UPLOAD, L"CBDepthPeel"), false);
+	N_RETURN(m_cbDepthPeel->Create(m_device.get(), sizeof(XMFLOAT4X4[FrameCount]), FrameCount,
+		nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBDepthPeel"), false);
 
 	m_cbDepthPeelLS = ConstantBuffer::MakeUnique();
-	N_RETURN(m_cbDepthPeelLS->Create(m_device.get(), sizeof(XMFLOAT4X4[FrameCount]), FrameCount, nullptr, MemoryType::UPLOAD, L"CBDepthPeelLS"), false);
+	N_RETURN(m_cbDepthPeelLS->Create(m_device.get(), sizeof(XMFLOAT4X4[FrameCount]), FrameCount,
+		nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBDepthPeelLS"), false);
 
 	m_cbPerFrame = ConstantBuffer::MakeUnique();
-	N_RETURN(m_cbPerFrame->Create(m_device.get(), sizeof(CBPerFrame[FrameCount]), FrameCount, nullptr, MemoryType::UPLOAD, L"CBPerFrame"), false);
+	N_RETURN(m_cbPerFrame->Create(m_device.get(), sizeof(CBPerFrame[FrameCount]), FrameCount,
+		nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBPerFrame"), false);
 
 	// Initialize world transform
 	XMStoreFloat3x4(&m_world, XMMatrixIdentity());

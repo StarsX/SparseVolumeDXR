@@ -1,1 +1,1 @@
-start SparseVolumeDXR.exe -mesh Media/dragon.obj
+start SparseVolumeDXR.exe -mesh Assets/dragon.obj

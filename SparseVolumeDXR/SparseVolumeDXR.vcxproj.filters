@@ -25,17 +25,11 @@
     <Filter Include="XUSG">
       <UniqueIdentifier>{c8f1f7b1-f111-4e86-a54e-5a3909ad8296}</UniqueIdentifier>
     </Filter>
-    <Filter Include="XUSG\RayTracing">
-      <UniqueIdentifier>{e8f65036-cc74-4b6f-9419-f6e63442cd57}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Shaders">
       <UniqueIdentifier>{aef06da7-c63a-4bfd-b055-b499e65346de}</UniqueIdentifier>
     </Filter>
     <Filter Include="XUSG\Optional">
       <UniqueIdentifier>{cf33d033-4330-4a25-9dd9-7070c02d511a}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="XUSG\Core">
-      <UniqueIdentifier>{a7f8e376-64ac-4db0-b1e5-38a3aa28fd22}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
@@ -73,10 +67,10 @@
       <Filter>XUSG\Optional</Filter>
     </ClInclude>
     <ClInclude Include="XUSG\Core\XUSG.h">
-      <Filter>XUSG\Core</Filter>
+      <Filter>XUSG</Filter>
     </ClInclude>
     <ClInclude Include="XUSG\RayTracing\XUSGRayTracing.h">
-      <Filter>XUSG\RayTracing</Filter>
+      <Filter>XUSG</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

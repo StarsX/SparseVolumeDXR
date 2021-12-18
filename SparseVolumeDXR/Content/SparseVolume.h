@@ -18,9 +18,9 @@ public:
 		const DirectX::XMFLOAT4& posScale);
 
 	void UpdateFrame(uint8_t frameIndex, DirectX::CXMMATRIX viewProj);
-	void Render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
+	void Render(XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
 		const XUSG::Descriptor& rtv, const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
-	void RenderDXR(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
+	void RenderDXR(XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
 		XUSG::RenderTarget* pDst, const XUSG::Descriptor& dsv);
 
 	static const uint8_t FrameCount = 3;
@@ -87,16 +87,16 @@ protected:
 	bool createPipelineLayouts();
 	bool createPipelines(XUSG::Format rtFormat, XUSG::Format dsFormat);
 	bool createDescriptorTables();
-	bool buildAccelerationStructures(const XUSG::RayTracing::CommandList* pCommandList,
+	bool buildAccelerationStructures(XUSG::RayTracing::CommandList* pCommandList,
 		XUSG::RayTracing::GeometryBuffer* pGeometry);
 	bool buildShaderTables();
 
-	void depthPeel(const XUSG::RayTracing::CommandList* pCommandList,
+	void depthPeel(XUSG::RayTracing::CommandList* pCommandList,
 		uint8_t frameIndex, const XUSG::Descriptor& dsv, bool setPipeline = true);
-	void depthPeelLightSpace(const XUSG::RayTracing::CommandList* pCommandList,
+	void depthPeelLightSpace(XUSG::RayTracing::CommandList* pCommandList,
 		uint8_t frameIndex, const XUSG::Descriptor& dsv);
-	void render(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex, const XUSG::Descriptor& rtv);
-	void rayTrace(const XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
+	void render(XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex, const XUSG::Descriptor& rtv);
+	void rayTrace(XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
 	XUSG::RayTracing::Device::sptr m_device;
 	XUSG::RayTracing::BottomLevelAS::uptr m_bottomLevelAS;

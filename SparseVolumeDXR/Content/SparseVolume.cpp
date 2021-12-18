@@ -159,7 +159,7 @@ void SparseVolume::UpdateFrame(uint8_t frameIndex, CXMMATRIX viewProj)
 	}
 }
 
-void SparseVolume::Render(const RayTracing::CommandList* pCommandList, uint8_t frameIndex,
+void SparseVolume::Render(RayTracing::CommandList* pCommandList, uint8_t frameIndex,
 	const Descriptor& rtv, const Descriptor& dsv, const Descriptor& lsDsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL) };
@@ -171,7 +171,7 @@ void SparseVolume::Render(const RayTracing::CommandList* pCommandList, uint8_t f
 	render(pCommandList, frameIndex, rtv);
 }
 
-void SparseVolume::RenderDXR(const RayTracing::CommandList* pCommandList,
+void SparseVolume::RenderDXR(RayTracing::CommandList* pCommandList,
 	uint8_t frameIndex, RenderTarget* pDst, const Descriptor& dsv)
 {
 	const DescriptorPool descriptorPools[] = { m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL) };
@@ -383,7 +383,7 @@ bool SparseVolume::createDescriptorTables()
 	return true;
 }
 
-bool SparseVolume::buildAccelerationStructures(const RayTracing::CommandList* pCommandList, GeometryBuffer* pGeometry)
+bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommandList, GeometryBuffer* pGeometry)
 {
 	// Set geometries
 	const auto geometryFlags = GeometryFlag::NONE;
@@ -460,7 +460,7 @@ bool SparseVolume::buildShaderTables()
 	return true;
 }
 
-void SparseVolume::depthPeel(const RayTracing::CommandList* pCommandList,
+void SparseVolume::depthPeel(RayTracing::CommandList* pCommandList,
 	uint8_t frameIndex, const Descriptor& dsv, bool setPipeline)
 {
 	// Set resource barrier
@@ -493,7 +493,7 @@ void SparseVolume::depthPeel(const RayTracing::CommandList* pCommandList,
 	pCommandList->DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
-void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList* pCommandList,
+void SparseVolume::depthPeelLightSpace(RayTracing::CommandList* pCommandList,
 	uint8_t frameIndex, const Descriptor& dsv)
 {
 	// Set resource barrier
@@ -526,7 +526,7 @@ void SparseVolume::depthPeelLightSpace(const RayTracing::CommandList* pCommandLi
 	pCommandList->DrawIndexed(m_numIndices, 1, 0, 0, 0);
 }
 
-void SparseVolume::render(const RayTracing::CommandList* pCommandList, uint8_t frameIndex, const Descriptor& rtv)
+void SparseVolume::render(RayTracing::CommandList* pCommandList, uint8_t frameIndex, const Descriptor& rtv)
 {
 	// Set resource barriers
 	ResourceBarrier barriers[2];
@@ -555,7 +555,7 @@ void SparseVolume::render(const RayTracing::CommandList* pCommandList, uint8_t f
 	pCommandList->Draw(3, 1, 0, 0);
 }
 
-void SparseVolume::rayTrace(const RayTracing::CommandList* pCommandList, uint8_t frameIndex)
+void SparseVolume::rayTrace(RayTracing::CommandList* pCommandList, uint8_t frameIndex)
 {
 	// Set resource barrier
 	ResourceBarrier barrier;

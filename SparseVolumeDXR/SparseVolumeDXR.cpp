@@ -87,7 +87,7 @@ void SparseVolumeDXR::LoadPipeline()
 		ThrowIfFailed(factory->EnumAdapters1(i, &dxgiAdapter));
 		EnableDirectXRaytracing(dxgiAdapter.get());
 
-		m_device = RayTracing::Device::MakeShared();
+		m_device = RayTracing::Device::MakeUnique();
 		hr = m_device->Create(dxgiAdapter.get(), D3D_FEATURE_LEVEL_11_0);
 		N_RETURN(m_device->CreateInterface(), ThrowIfFailed(E_FAIL));
 	}
@@ -146,7 +146,7 @@ void SparseVolumeDXR::LoadAssets()
 	m_lsDepth->Create(m_device.get(), SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, m_depth->GetFormat(),
 		ResourceFlag::DENY_SHADER_RESOURCE);
 
-	m_sparseVolume = make_unique<SparseVolume>(m_device);
+	m_sparseVolume = make_unique<SparseVolume>();
 	if (!m_sparseVolume) ThrowIfFailed(E_FAIL);
 
 	vector<Resource::uptr> uploaders(0);
@@ -207,7 +207,7 @@ void SparseVolumeDXR::OnUpdate()
 	const auto eyePt = XMLoadFloat3(&m_eyePt);
 	const auto view = XMLoadFloat4x4(&m_view);
 	const auto proj = XMLoadFloat4x4(&m_proj);
-	m_sparseVolume->UpdateFrame(m_frameIndex, view * proj);
+	m_sparseVolume->UpdateFrame(m_device.get(), m_frameIndex, view * proj);
 }
 
 // Render the scene.

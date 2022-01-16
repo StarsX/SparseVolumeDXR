@@ -9,7 +9,7 @@
 class SparseVolume
 {
 public:
-	SparseVolume(const XUSG::RayTracing::Device::sptr& device);
+	SparseVolume();
 	virtual ~SparseVolume();
 
 	bool Init(XUSG::RayTracing::CommandList* pCommandList, uint32_t width, uint32_t height,
@@ -17,7 +17,7 @@ public:
 		XUSG::RayTracing::GeometryBuffer* pGeometry, const char* fileName,
 		const DirectX::XMFLOAT4& posScale);
 
-	void UpdateFrame(uint8_t frameIndex, DirectX::CXMMATRIX viewProj);
+	void UpdateFrame(const XUSG::RayTracing::Device* pDevice, uint8_t frameIndex, DirectX::CXMMATRIX viewProj);
 	void Render(XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
 		const XUSG::Descriptor& rtv, const XUSG::Descriptor& dsv, const XUSG::Descriptor& lsDsv);
 	void RenderDXR(XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex,
@@ -84,12 +84,12 @@ protected:
 	bool createIB(XUSG::CommandList* pCommandList, uint32_t numIndices,
 		const uint32_t* pData, std::vector<XUSG::Resource::uptr>& uploaders);
 	bool createInputLayout();
-	bool createPipelineLayouts();
+	bool createPipelineLayouts(const XUSG::RayTracing::Device* pDevice);
 	bool createPipelines(XUSG::Format rtFormat, XUSG::Format dsFormat);
 	bool createDescriptorTables();
 	bool buildAccelerationStructures(XUSG::RayTracing::CommandList* pCommandList,
 		XUSG::RayTracing::GeometryBuffer* pGeometry);
-	bool buildShaderTables();
+	bool buildShaderTables(const XUSG::RayTracing::Device* pDevice);
 
 	void depthPeel(XUSG::RayTracing::CommandList* pCommandList,
 		uint8_t frameIndex, const XUSG::Descriptor& dsv, bool setPipeline = true);
@@ -98,7 +98,6 @@ protected:
 	void render(XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex, const XUSG::Descriptor& rtv);
 	void rayTrace(XUSG::RayTracing::CommandList* pCommandList, uint8_t frameIndex);
 
-	XUSG::RayTracing::Device::sptr m_device;
 	XUSG::RayTracing::BottomLevelAS::uptr m_bottomLevelAS;
 	XUSG::RayTracing::TopLevelAS::uptr m_topLevelAS;
 

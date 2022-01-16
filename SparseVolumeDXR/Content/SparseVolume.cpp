@@ -28,16 +28,10 @@ const wchar_t* SparseVolume::RaygenShaderName = L"raygenMain";
 const wchar_t* SparseVolume::AnyHitShaderName = L"anyHitMain";
 const wchar_t* SparseVolume::MissShaderName = L"missMain";
 
-SparseVolume::SparseVolume(const RayTracing::Device::sptr& device) :
-	m_device(device),
+SparseVolume::SparseVolume() :
 	m_instances()
 {
 	m_shaderPool = ShaderPool::MakeUnique();
-	m_rayTracingPipelineCache = RayTracing::PipelineCache::MakeUnique(device.get());
-	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(device.get());
-	m_computePipelineCache = Compute::PipelineCache::MakeUnique(device.get());
-	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(device.get());
-	m_descriptorTableCache = DescriptorTableCache::MakeUnique(device.get(), L"RayTracerDescriptorTableCache");
 }
 
 SparseVolume::~SparseVolume()
@@ -48,6 +42,13 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, u
 	Format rtFormat, Format dsFormat, vector<Resource::uptr>& uploaders, GeometryBuffer* pGeometry,
 	const char* fileName, const XMFLOAT4& posScale)
 {
+	const auto pDevice = pCommandList->GetRTDevice();
+	m_rayTracingPipelineCache = RayTracing::PipelineCache::MakeUnique(pDevice);
+	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(pDevice);
+	m_computePipelineCache = Compute::PipelineCache::MakeUnique(pDevice);
+	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(pDevice);
+	m_descriptorTableCache = DescriptorTableCache::MakeUnique(pDevice, L"RayTracerDescriptorTableCache");
+
 	m_viewport.x = static_cast<float>(width);
 	m_viewport.y = static_cast<float>(height);
 	m_posScale = posScale;
@@ -62,7 +63,7 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, u
 
 	// Create pipelines
 	N_RETURN(createInputLayout(), false);
-	N_RETURN(createPipelineLayouts(), false);
+	N_RETURN(createPipelineLayouts(pDevice), false);
 	N_RETURN(createPipelines(rtFormat, dsFormat), false);
 
 	// Extract boundary
@@ -71,28 +72,28 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, u
 
 	// Create output grids and build acceleration structures
 	m_depthKBuffer = Texture2D::MakeUnique();
-	N_RETURN(m_depthKBuffer->Create(m_device.get(), width, height, Format::R32_UINT, NUM_K_LAYERS,
+	N_RETURN(m_depthKBuffer->Create(pDevice, width, height, Format::R32_UINT, NUM_K_LAYERS,
 		ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS), false);
 
 	m_lsDepthKBuffer = Texture2D::MakeUnique();
-	N_RETURN(m_lsDepthKBuffer->Create(m_device.get(), SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, Format::R32_UINT,
+	N_RETURN(m_lsDepthKBuffer->Create(pDevice, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, Format::R32_UINT,
 		NUM_K_LAYERS, ResourceFlag::ALLOW_UNORDERED_ACCESS | ResourceFlag::ALLOW_SIMULTANEOUS_ACCESS), false);
 
 	m_outputView = Texture2D::MakeUnique();
-	N_RETURN(m_outputView->Create(m_device.get(), width, height, rtFormat, 1,
+	N_RETURN(m_outputView->Create(pDevice, width, height, rtFormat, 1,
 		ResourceFlag::ALLOW_UNORDERED_ACCESS), false);
 
 	// Create constant buffers
 	m_cbDepthPeel = ConstantBuffer::MakeUnique();
-	N_RETURN(m_cbDepthPeel->Create(m_device.get(), sizeof(XMFLOAT4X4[FrameCount]), FrameCount,
+	N_RETURN(m_cbDepthPeel->Create(pDevice, sizeof(XMFLOAT4X4[FrameCount]), FrameCount,
 		nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBDepthPeel"), false);
 
 	m_cbDepthPeelLS = ConstantBuffer::MakeUnique();
-	N_RETURN(m_cbDepthPeelLS->Create(m_device.get(), sizeof(XMFLOAT4X4[FrameCount]), FrameCount,
+	N_RETURN(m_cbDepthPeelLS->Create(pDevice, sizeof(XMFLOAT4X4[FrameCount]), FrameCount,
 		nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBDepthPeelLS"), false);
 
 	m_cbPerFrame = ConstantBuffer::MakeUnique();
-	N_RETURN(m_cbPerFrame->Create(m_device.get(), sizeof(CBPerFrame[FrameCount]), FrameCount,
+	N_RETURN(m_cbPerFrame->Create(pDevice, sizeof(CBPerFrame[FrameCount]), FrameCount,
 		nullptr, MemoryType::UPLOAD, MemoryFlag::NONE, L"CBPerFrame"), false);
 
 	// Initialize world transform
@@ -101,14 +102,14 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, u
 	if (m_useRayTracing)
 	{
 		N_RETURN(buildAccelerationStructures(pCommandList, pGeometry), false);
-		N_RETURN(buildShaderTables(), false);
+		N_RETURN(buildShaderTables(pDevice), false);
 	}
 	else createDescriptorTables();
 
 	return true;
 }
 
-void SparseVolume::UpdateFrame(uint8_t frameIndex, CXMMATRIX viewProj)
+void SparseVolume::UpdateFrame(const RayTracing::Device* pDevice, uint8_t frameIndex, CXMMATRIX viewProj)
 {
 	// General matrices
 	//const auto world = XMMatrixScaling(m_bound.w, m_bound.w, m_bound.w) *
@@ -154,7 +155,7 @@ void SparseVolume::UpdateFrame(uint8_t frameIndex, CXMMATRIX viewProj)
 		XMStoreFloat4(&cbRayGen.LightDir, XMVector3Normalize(lightPt - focusPt));
 
 		m_rayGenShaderTables[frameIndex]->Reset();
-		m_rayGenShaderTables[frameIndex]->AddShaderRecord(ShaderRecord::MakeUnique(m_device.get(),
+		m_rayGenShaderTables[frameIndex]->AddShaderRecord(ShaderRecord::MakeUnique(pDevice,
 			m_pipelines[RAY_TRACING], RaygenShaderName, &cbRayGen, sizeof(cbRayGen)).get());
 	}
 }
@@ -194,7 +195,7 @@ bool SparseVolume::createVB(XUSG::CommandList* pCommandList, uint32_t numVert,
 	uint32_t stride, const uint8_t* pData, vector<Resource::uptr>& uploaders)
 {
 	m_vertexBuffer = VertexBuffer::MakeUnique();
-	N_RETURN(m_vertexBuffer->Create(m_device.get(), numVert, stride,
+	N_RETURN(m_vertexBuffer->Create(pCommandList->GetDevice(), numVert, stride,
 		ResourceFlag::NONE, MemoryType::DEFAULT), false);
 	uploaders.emplace_back(Resource::MakeUnique());
 
@@ -209,7 +210,7 @@ bool SparseVolume::createIB(XUSG::CommandList* pCommandList, uint32_t numIndices
 	const uint32_t byteWidth = sizeof(uint32_t) * numIndices;
 
 	m_indexBuffer = IndexBuffer::MakeUnique();
-	N_RETURN(m_indexBuffer->Create(m_device.get(), byteWidth, Format::R32_UINT,
+	N_RETURN(m_indexBuffer->Create(pCommandList->GetDevice(), byteWidth, Format::R32_UINT,
 		ResourceFlag::NONE, MemoryType::DEFAULT), false);
 	uploaders.emplace_back(Resource::MakeUnique());
 
@@ -231,7 +232,7 @@ bool SparseVolume::createInputLayout()
 	return true;
 }
 
-bool SparseVolume::createPipelineLayouts()
+bool SparseVolume::createPipelineLayouts(const RayTracing::Device* pDevice)
 {
 	// Depth peeling pass
 	{
@@ -263,7 +264,7 @@ bool SparseVolume::createPipelineLayouts()
 		pipelineLayout->SetRange(OUTPUT_VIEW, DescriptorType::UAV, 1, 0);
 		pipelineLayout->SetRootSRV(ACCELERATION_STRUCTURE, 0, 0, DescriptorFlag::DATA_STATIC);
 		pipelineLayout->SetRange(DEPTH_K_BUFFERS, DescriptorType::SRV, 1, 1);
-		X_RETURN(m_pipelineLayouts[GLOBAL_LAYOUT], pipelineLayout->GetPipelineLayout(m_device.get(), m_pipelineLayoutCache.get(),
+		X_RETURN(m_pipelineLayouts[GLOBAL_LAYOUT], pipelineLayout->GetPipelineLayout(pDevice, m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::NONE, L"RayTracerGlobalPipelineLayout"), false);
 	}
 
@@ -273,7 +274,7 @@ bool SparseVolume::createPipelineLayouts()
 	{
 		const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
 		pipelineLayout->SetConstants(CONSTANTS, SizeOfInUint32(RayGenConstants), 0);
-		X_RETURN(m_pipelineLayouts[RAY_GEN_LAYOUT], pipelineLayout->GetPipelineLayout(m_device.get(), m_pipelineLayoutCache.get(),
+		X_RETURN(m_pipelineLayouts[RAY_GEN_LAYOUT], pipelineLayout->GetPipelineLayout(pDevice, m_pipelineLayoutCache.get(),
 			PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT, L"RayTracerRayGenPipelineLayout"), false);
 	}
 
@@ -385,6 +386,8 @@ bool SparseVolume::createDescriptorTables()
 
 bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommandList, GeometryBuffer* pGeometry)
 {
+	const auto pDevice = pCommandList->GetRTDevice();
+
 	// Set geometries
 	const auto geometryFlags = GeometryFlag::NONE;
 	BottomLevelAS::SetTriangleGeometries(*pGeometry, 1, Format::R32G32B32_FLOAT,
@@ -397,14 +400,14 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	// Prebuild
 	m_bottomLevelAS = BottomLevelAS::MakeUnique();
 	m_topLevelAS = TopLevelAS::MakeUnique();
-	N_RETURN(m_bottomLevelAS->PreBuild(m_device.get(), 1, *pGeometry, bottomLevelASIndex), false);
-	N_RETURN(m_topLevelAS->PreBuild(m_device.get(), 1, topLevelASIndex), false);
+	N_RETURN(m_bottomLevelAS->PreBuild(pDevice, 1, *pGeometry, bottomLevelASIndex), false);
+	N_RETURN(m_topLevelAS->PreBuild(pDevice, 1, topLevelASIndex), false);
 
 	// Create scratch buffer
 	auto scratchSize = m_topLevelAS->GetScratchDataMaxSize();
 	scratchSize = (max)(m_bottomLevelAS->GetScratchDataMaxSize(), scratchSize);
 	m_scratch = Resource::MakeUnique();
-	N_RETURN(AccelerationStructure::AllocateUAVBuffer(m_device.get(), m_scratch.get(), scratchSize), false);
+	N_RETURN(AccelerationStructure::AllocateUAVBuffer(pDevice, m_scratch.get(), scratchSize), false);
 
 	// Get descriptor pool and create descriptor tables
 	N_RETURN(createDescriptorTables(), false);
@@ -414,7 +417,7 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	float* const pTransform[] = { reinterpret_cast<float*>(&m_world) };
 	m_instances = Resource::MakeUnique();
 	const BottomLevelAS* ppBottomLevelAS[] = { m_bottomLevelAS.get() };
-	TopLevelAS::SetInstances(m_device.get(), m_instances.get(), 1, ppBottomLevelAS, pTransform);
+	TopLevelAS::SetInstances(pDevice, m_instances.get(), 1, ppBottomLevelAS, pTransform);
 
 	// Build bottom level ASs
 	m_bottomLevelAS->Build(pCommandList, m_scratch.get(), descriptorPool);
@@ -431,31 +434,31 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	return true;
 }
 
-bool SparseVolume::buildShaderTables()
+bool SparseVolume::buildShaderTables(const RayTracing::Device* pDevice)
 {
 	// Get shader identifiers.
-	const auto shaderIDSize = ShaderRecord::GetShaderIDSize(m_device.get());
+	const auto shaderIDSize = ShaderRecord::GetShaderIDSize(pDevice);
 	const RayGenConstants rayGenConsts = {};
 
 	for (uint8_t i = 0; i < FrameCount; ++i)
 	{
 		// Ray gen shader table
 		m_rayGenShaderTables[i] = ShaderTable::MakeUnique();
-		N_RETURN(m_rayGenShaderTables[i]->Create(m_device.get(), 1, shaderIDSize + sizeof(RayGenConstants),
+		N_RETURN(m_rayGenShaderTables[i]->Create(pDevice, 1, shaderIDSize + sizeof(RayGenConstants),
 			(L"RayGenShaderTable" + to_wstring(i)).c_str()), false);
-		N_RETURN(m_rayGenShaderTables[i]->AddShaderRecord(ShaderRecord::MakeUnique(m_device.get(),
+		N_RETURN(m_rayGenShaderTables[i]->AddShaderRecord(ShaderRecord::MakeUnique(pDevice,
 			m_pipelines[RAY_TRACING], RaygenShaderName, &rayGenConsts, sizeof(RayGenConstants)).get()), false);
 	}
 
 	// Hit group shader table
 	m_hitGroupShaderTable = ShaderTable::MakeUnique();
-	N_RETURN(m_hitGroupShaderTable->Create(m_device.get(), 1, shaderIDSize, L"HitGroupShaderTable"), false);
-	N_RETURN(m_hitGroupShaderTable->AddShaderRecord(ShaderRecord::MakeUnique(m_device.get(), m_pipelines[RAY_TRACING], HitGroupName).get()), false);
+	N_RETURN(m_hitGroupShaderTable->Create(pDevice, 1, shaderIDSize, L"HitGroupShaderTable"), false);
+	N_RETURN(m_hitGroupShaderTable->AddShaderRecord(ShaderRecord::MakeUnique(pDevice, m_pipelines[RAY_TRACING], HitGroupName).get()), false);
 
 	// Miss shader table
 	m_missShaderTable = ShaderTable::MakeUnique();
-	N_RETURN(m_missShaderTable->Create(m_device.get(), 1, shaderIDSize, L"MissShaderTable"), false);
-	N_RETURN(m_missShaderTable->AddShaderRecord(ShaderRecord::MakeUnique(m_device.get(), m_pipelines[RAY_TRACING], MissShaderName).get()), false);
+	N_RETURN(m_missShaderTable->Create(pDevice, 1, shaderIDSize, L"MissShaderTable"), false);
+	N_RETURN(m_missShaderTable->AddShaderRecord(ShaderRecord::MakeUnique(pDevice, m_pipelines[RAY_TRACING], MissShaderName).get()), false);
 
 	return true;
 }

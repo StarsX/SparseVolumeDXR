@@ -69,6 +69,7 @@ void raygenMain()
 {
 	// Trace the ray.
 	RayDesc ray;
+	ray.Origin = 0.0;
 	ray.Direction = l_rayGenCB.LightDir;
 	ray.TMin = 0.0;
 	ray.TMax = 10000.0;

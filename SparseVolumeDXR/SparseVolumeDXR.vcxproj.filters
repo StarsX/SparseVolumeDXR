@@ -72,6 +72,9 @@
     <ClInclude Include="XUSG\RayTracing\XUSGRayTracing.h">
       <Filter>XUSG</Filter>
     </ClInclude>
+    <ClInclude Include="XUSG\Ultimate\XUSGUltimate.h">
+      <Filter>XUSG</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Common\DXFramework.cpp">

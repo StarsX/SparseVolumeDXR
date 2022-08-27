@@ -47,7 +47,7 @@ private:
 	static const auto FrameCount = SparseVolume::FrameCount;
 
 	// Pipeline objects.
-	std::shared_ptr<XUSG::DescriptorTableCache> m_descriptorTableCache;
+	XUSG::DescriptorTableCache::sptr m_descriptorTableCache;
 
 	XUSG::Viewport			m_viewport;
 	XUSG::RectRange			m_scissorRect;

@@ -39,16 +39,16 @@ SparseVolume::~SparseVolume()
 {
 }
 
-bool SparseVolume::Init(RayTracing::CommandList* pCommandList, uint32_t width, uint32_t height,
-	Format rtFormat, Format dsFormat, vector<Resource::uptr>& uploaders, GeometryBuffer* pGeometry,
-	const char* fileName, const XMFLOAT4& posScale)
+bool SparseVolume::Init(RayTracing::CommandList* pCommandList, const DescriptorTableCache::sptr& descriptorTableCache,
+	uint32_t width, uint32_t height, Format rtFormat, Format dsFormat, vector<Resource::uptr>& uploaders,
+	GeometryBuffer* pGeometry, const char* fileName, const XMFLOAT4& posScale)
 {
 	const auto pDevice = pCommandList->GetRTDevice();
 	m_rayTracingPipelineCache = RayTracing::PipelineCache::MakeUnique(pDevice);
 	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(pDevice);
 	m_computePipelineCache = Compute::PipelineCache::MakeUnique(pDevice);
 	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(pDevice);
-	m_descriptorTableCache = DescriptorTableCache::MakeUnique(pDevice, L"RayTracerDescriptorTableCache");
+	m_descriptorTableCache = descriptorTableCache;
 
 	m_viewport.x = static_cast<float>(width);
 	m_viewport.y = static_cast<float>(height);
@@ -164,9 +164,6 @@ void SparseVolume::UpdateFrame(const RayTracing::Device* pDevice, uint8_t frameI
 void SparseVolume::Render(RayTracing::CommandList* pCommandList, uint8_t frameIndex,
 	const Descriptor& rtv, const Descriptor& dsv, const Descriptor& lsDsv)
 {
-	const DescriptorPool descriptorPools[] = { m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL) };
-	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
-
 	depthPeelLightSpace(pCommandList, frameIndex, lsDsv);
 	depthPeel(pCommandList, frameIndex, dsv, false);
 

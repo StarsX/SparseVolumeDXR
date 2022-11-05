@@ -129,8 +129,8 @@ void SparseVolumeDXR::LoadPipeline()
 	XUSG_N_RETURN(m_depth->Create(m_device.get(), m_width, m_height, Format::D24_UNORM_S8_UINT,
 		ResourceFlag::DENY_SHADER_RESOURCE), ThrowIfFailed(E_FAIL));
 
-	// Create descriptor table cache.
-	m_descriptorTableCache = DescriptorTableCache::MakeShared(m_device.get(), L"DescriptorTableCache");
+	// Create descriptor-table lib.
+	m_descriptorTableLib = DescriptorTableLib::MakeShared(m_device.get(), L"DescriptorTableLib");
 }
 
 // Load the sample assets.
@@ -152,7 +152,7 @@ void SparseVolumeDXR::LoadAssets()
 	vector<Resource::uptr> uploaders(0);
 	GeometryBuffer geometry;
 	m_sparseVolume = make_unique<SparseVolume>();
-	XUSG_N_RETURN(m_sparseVolume->Init(pCommandList, m_descriptorTableCache, m_width, m_height,
+	XUSG_N_RETURN(m_sparseVolume->Init(pCommandList, m_descriptorTableLib, m_width, m_height,
 		m_renderTargets[0]->GetFormat(), m_depth->GetFormat(), uploaders, m_isDxrSupported ? &geometry : nullptr,
 		m_meshFileName.c_str(), m_meshPosScale), ThrowIfFailed(E_FAIL));
 
@@ -352,7 +352,7 @@ void SparseVolumeDXR::PopulateCommandList()
 	XUSG_N_RETURN(pCommandList->Reset(pCommandAllocator, nullptr), ThrowIfFailed(E_FAIL));
 
 	// Bind the descriptor pool
-	const DescriptorPool descriptorPools[] = { m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL) };
+	const DescriptorPool descriptorPools[] = { m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL) };
 	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
 	// Set resource barrier

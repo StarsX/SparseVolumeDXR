@@ -31,7 +31,7 @@ const wchar_t* SparseVolume::MissShaderName = L"missMain";
 SparseVolume::SparseVolume() :
 	m_instances()
 {
-	m_shaderPool = ShaderPool::MakeUnique();
+	m_shaderLib = ShaderLib::MakeUnique();
 	AccelerationStructure::SetUAVCount(2);
 }
 
@@ -39,16 +39,16 @@ SparseVolume::~SparseVolume()
 {
 }
 
-bool SparseVolume::Init(RayTracing::CommandList* pCommandList, const DescriptorTableCache::sptr& descriptorTableCache,
+bool SparseVolume::Init(RayTracing::CommandList* pCommandList, const DescriptorTableLib::sptr& descriptorTableLib,
 	uint32_t width, uint32_t height, Format rtFormat, Format dsFormat, vector<Resource::uptr>& uploaders,
 	GeometryBuffer* pGeometry, const char* fileName, const XMFLOAT4& posScale)
 {
 	const auto pDevice = pCommandList->GetRTDevice();
-	m_rayTracingPipelineCache = RayTracing::PipelineCache::MakeUnique(pDevice);
-	m_graphicsPipelineCache = Graphics::PipelineCache::MakeUnique(pDevice);
-	m_computePipelineCache = Compute::PipelineCache::MakeUnique(pDevice);
-	m_pipelineLayoutCache = PipelineLayoutCache::MakeUnique(pDevice);
-	m_descriptorTableCache = descriptorTableCache;
+	m_rayTracingPipelineLib = RayTracing::PipelineLib::MakeUnique(pDevice);
+	m_graphicsPipelineLib = Graphics::PipelineLib::MakeUnique(pDevice);
+	m_computePipelineLib = Compute::PipelineLib::MakeUnique(pDevice);
+	m_pipelineLayoutLib = PipelineLayoutLib::MakeUnique(pDevice);
+	m_descriptorTableLib = descriptorTableLib;
 
 	m_viewport.x = static_cast<float>(width);
 	m_viewport.y = static_cast<float>(height);
@@ -173,7 +173,7 @@ void SparseVolume::Render(RayTracing::CommandList* pCommandList, uint8_t frameIn
 void SparseVolume::RenderDXR(RayTracing::CommandList* pCommandList,
 	uint8_t frameIndex, RenderTarget* pDst, const Descriptor& dsv)
 {
-	const DescriptorPool descriptorPools[] = { m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL) };
+	const DescriptorPool descriptorPools[] = { m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL) };
 	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
 
 	depthPeel(pCommandList, frameIndex, dsv);
@@ -225,7 +225,7 @@ bool SparseVolume::createInputLayout()
 		{ "NORMAL",		0, Format::R32G32B32_FLOAT, 0, XUSG_APPEND_ALIGNED_ELEMENT,	InputClassification::PER_VERTEX_DATA, 0 }
 	};
 
-	XUSG_X_RETURN(m_pInputLayout, m_graphicsPipelineCache->CreateInputLayout(inputElements, static_cast<uint32_t>(size(inputElements))), false);
+	XUSG_X_RETURN(m_pInputLayout, m_graphicsPipelineLib->CreateInputLayout(inputElements, static_cast<uint32_t>(size(inputElements))), false);
 
 	return true;
 }
@@ -239,7 +239,7 @@ bool SparseVolume::createPipelineLayouts(const RayTracing::Device* pDevice)
 		pipelineLayout->SetRootCBV(CONSTANTS, 0, 0, Shader::Stage::VS);
 		pipelineLayout->SetRange(SRV_UAVS, DescriptorType::UAV, 1, 0, 0, DescriptorFlag::DATA_STATIC_WHILE_SET_AT_EXECUTE);
 		pipelineLayout->SetShaderStage(SRV_UAVS, Shader::Stage::PS);
-		XUSG_X_RETURN(m_pipelineLayouts[DEPTH_PEEL_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
+		XUSG_X_RETURN(m_pipelineLayouts[DEPTH_PEEL_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutLib.get(),
 			PipelineLayoutFlag::ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT, L"DepthPeelingLayout"), false);
 	}
 
@@ -250,7 +250,7 @@ bool SparseVolume::createPipelineLayouts(const RayTracing::Device* pDevice)
 		pipelineLayout->SetRootCBV(CONSTANTS, 0, 0, Shader::Stage::PS);
 		pipelineLayout->SetRange(SRV_UAVS, DescriptorType::SRV, 2, 0);
 		pipelineLayout->SetShaderStage(SRV_UAVS, Shader::Stage::PS);
-		XUSG_X_RETURN(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutCache.get(),
+		XUSG_X_RETURN(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT], pipelineLayout->GetPipelineLayout(m_pipelineLayoutLib.get(),
 			PipelineLayoutFlag::NONE, L"SparseRayCastLayout"), false);
 	}
 
@@ -262,7 +262,7 @@ bool SparseVolume::createPipelineLayouts(const RayTracing::Device* pDevice)
 		pipelineLayout->SetRange(OUTPUT_VIEW, DescriptorType::UAV, 1, 0);
 		pipelineLayout->SetRootSRV(ACCELERATION_STRUCTURE, 0, 0, DescriptorFlag::DATA_STATIC);
 		pipelineLayout->SetRange(DEPTH_K_BUFFERS, DescriptorType::SRV, 1, 1);
-		XUSG_X_RETURN(m_pipelineLayouts[GLOBAL_LAYOUT], pipelineLayout->GetPipelineLayout(pDevice, m_pipelineLayoutCache.get(),
+		XUSG_X_RETURN(m_pipelineLayouts[GLOBAL_LAYOUT], pipelineLayout->GetPipelineLayout(pDevice, m_pipelineLayoutLib.get(),
 			PipelineLayoutFlag::NONE, L"RayTracerGlobalPipelineLayout"), false);
 	}
 
@@ -271,8 +271,8 @@ bool SparseVolume::createPipelineLayouts(const RayTracing::Device* pDevice)
 	if (m_useRayTracing)
 	{
 		const auto pipelineLayout = RayTracing::PipelineLayout::MakeUnique();
-		pipelineLayout->SetConstants(CONSTANTS, XUSG_SizeOfInUint32(RayGenConstants), 0);
-		XUSG_X_RETURN(m_pipelineLayouts[RAY_GEN_LAYOUT], pipelineLayout->GetPipelineLayout(pDevice, m_pipelineLayoutCache.get(),
+		pipelineLayout->SetConstants(CONSTANTS, XUSG_UINT32_SIZE_OF(RayGenConstants), 0);
+		XUSG_X_RETURN(m_pipelineLayouts[RAY_GEN_LAYOUT], pipelineLayout->GetPipelineLayout(pDevice, m_pipelineLayoutLib.get(),
 			PipelineLayoutFlag::LOCAL_PIPELINE_LAYOUT, L"RayTracerRayGenPipelineLayout"), false);
 	}
 
@@ -282,50 +282,52 @@ bool SparseVolume::createPipelineLayouts(const RayTracing::Device* pDevice)
 bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 {
 	{
-		XUSG_N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, VS_BASE_PASS, L"VSBasePass.cso"), false);
-		XUSG_N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, PS_DEPTH_PEEL, L"PSDepthPeel.cso"), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::VS, VS_BASE_PASS, L"VSBasePass.cso"), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::PS, PS_DEPTH_PEEL, L"PSDepthPeel.cso"), false);
 
 		const auto state = Graphics::State::MakeUnique();
 		state->SetPipelineLayout(m_pipelineLayouts[DEPTH_PEEL_LAYOUT]);
-		state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, VS_BASE_PASS));
-		state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, PS_DEPTH_PEEL));
-		state->RSSetState(Graphics::RasterizerPreset::CULL_NONE, m_graphicsPipelineCache.get());
-		state->DSSetState(Graphics::DepthStencilPreset::DEPTH_READ_LESS, m_graphicsPipelineCache.get());
+		state->SetShader(Shader::Stage::VS, m_shaderLib->GetShader(Shader::Stage::VS, VS_BASE_PASS));
+		state->SetShader(Shader::Stage::PS, m_shaderLib->GetShader(Shader::Stage::PS, PS_DEPTH_PEEL));
+		state->RSSetState(Graphics::RasterizerPreset::CULL_NONE, m_graphicsPipelineLib.get());
+		state->DSSetState(Graphics::DepthStencilPreset::DEPTH_READ_LESS, m_graphicsPipelineLib.get());
 		state->IASetInputLayout(m_pInputLayout);
 		state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
 		state->OMSetDSVFormat(dsFormat);
 
-		XUSG_X_RETURN(m_pipelines[DEPTH_PEEL], state->GetPipeline(m_graphicsPipelineCache.get(), L"DepthPeeling"), false);
+		XUSG_X_RETURN(m_pipelines[DEPTH_PEEL], state->GetPipeline(m_graphicsPipelineLib.get(), L"DepthPeeling"), false);
 	}
 
 	{
-		XUSG_N_RETURN(m_shaderPool->CreateShader(Shader::Stage::VS, VS_SCREEN_QUAD, L"VSScreenQuad.cso"), false);
-		XUSG_N_RETURN(m_shaderPool->CreateShader(Shader::Stage::PS, PS_SPARSE_RAYCAST, L"PSSparseRayCast.cso"), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::VS, VS_SCREEN_QUAD, L"VSScreenQuad.cso"), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::PS, PS_SPARSE_RAYCAST, L"PSSparseRayCast.cso"), false);
 
 		const auto state = Graphics::State::MakeUnique();
 		state->SetPipelineLayout(m_pipelineLayouts[SPARSE_RAYCAST_LAYOUT]);
-		state->SetShader(Shader::Stage::VS, m_shaderPool->GetShader(Shader::Stage::VS, VS_SCREEN_QUAD));
-		state->SetShader(Shader::Stage::PS, m_shaderPool->GetShader(Shader::Stage::PS, PS_SPARSE_RAYCAST));
-		state->DSSetState(Graphics::DepthStencilPreset::DEPTH_STENCIL_NONE, m_graphicsPipelineCache.get());
+		state->SetShader(Shader::Stage::VS, m_shaderLib->GetShader(Shader::Stage::VS, VS_SCREEN_QUAD));
+		state->SetShader(Shader::Stage::PS, m_shaderLib->GetShader(Shader::Stage::PS, PS_SPARSE_RAYCAST));
+		state->DSSetState(Graphics::DepthStencilPreset::DEPTH_STENCIL_NONE, m_graphicsPipelineLib.get());
 		state->IASetPrimitiveTopologyType(PrimitiveTopologyType::TRIANGLE);
 		state->OMSetRTVFormats(&rtFormat, 1);
 
-		XUSG_X_RETURN(m_pipelines[SPARSE_RAYCAST], state->GetPipeline(m_graphicsPipelineCache.get(), L"SparseRayCast"), false);
+		XUSG_X_RETURN(m_pipelines[SPARSE_RAYCAST], state->GetPipeline(m_graphicsPipelineLib.get(), L"SparseRayCast"), false);
 	}
 
 	if (m_useRayTracing)
 	{
-		XUSG_N_RETURN(m_shaderPool->CreateShader(Shader::Stage::CS, 0, L"SparseRayCast.cso"), false);
+		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, 0, L"SparseRayCast.cso"), false);
+		const void* shaders[] = { RaygenShaderName, AnyHitShaderName, MissShaderName };
 
 		const auto state = RayTracing::State::MakeUnique();
-		state->SetShaderLibrary(m_shaderPool->GetShader(Shader::Stage::CS, 0));
+		state->SetShaderLibrary(0, m_shaderLib->GetShader(Shader::Stage::CS, 0),
+			static_cast<uint32_t>(size(shaders)), shaders);
 		state->SetHitGroup(0, HitGroupName, nullptr, AnyHitShaderName);
 		state->SetShaderConfig(sizeof(float), sizeof(XMFLOAT2));
 		state->SetLocalPipelineLayout(0, m_pipelineLayouts[RAY_GEN_LAYOUT],
 			1, reinterpret_cast<const void**>(&RaygenShaderName));
 		state->SetGlobalPipelineLayout(m_pipelineLayouts[GLOBAL_LAYOUT]);
 		state->SetMaxRecursionDepth(1);
-		XUSG_X_RETURN(m_pipelines[RAY_TRACING], state->GetPipeline(m_rayTracingPipelineCache.get(), L"SparseRayCastDXR"), false);
+		XUSG_X_RETURN(m_pipelines[RAY_TRACING], state->GetPipeline(m_rayTracingPipelineLib.get(), L"SparseRayCastDXR"), false);
 	}
 
 	return true;
@@ -339,7 +341,7 @@ bool SparseVolume::createDescriptorTables()
 		const Descriptor descriptors[] = { m_bottomLevelAS->GetResult()->GetUAV(), m_topLevelAS->GetResult()->GetUAV() };
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
-		const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get());
+		const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
 		XUSG_N_RETURN(asTable, false);
 	}
 
@@ -348,28 +350,28 @@ bool SparseVolume::createDescriptorTables()
 		// Get UAV
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		descriptorTable->SetDescriptors(0, 1, &m_depthKBuffer->GetUAV());
-		XUSG_X_RETURN(m_uavTables[UAV_TABLE_KBUFFER], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+		XUSG_X_RETURN(m_uavTables[UAV_TABLE_KBUFFER], descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get()), false);
 	}
 
 	{
 		// Get UAV
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		descriptorTable->SetDescriptors(0, 1, &m_lsDepthKBuffer->GetUAV());
-		XUSG_X_RETURN(m_uavTables[UAV_TABLE_LS_KBUFFER], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+		XUSG_X_RETURN(m_uavTables[UAV_TABLE_LS_KBUFFER], descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get()), false);
 	}
 
 	{
 		// Output UAV
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		descriptorTable->SetDescriptors(0, 1, &m_outputView->GetUAV());
-		XUSG_X_RETURN(m_uavTables[UAV_TABLE_OUT_VIEW], descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+		XUSG_X_RETURN(m_uavTables[UAV_TABLE_OUT_VIEW], descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get()), false);
 	}
 
 	// Depth K-buffer SRV
 	const Descriptor descriptors[] = { m_depthKBuffer->GetSRV(), m_lsDepthKBuffer->GetSRV() };
 	const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 	descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
-	XUSG_X_RETURN(m_srvTable, descriptorTable->GetCbvSrvUavTable(m_descriptorTableCache.get()), false);
+	XUSG_X_RETURN(m_srvTable, descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get()), false);
 
 	// Create the sampler table
 	/*{
@@ -409,7 +411,7 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 
 	// Get descriptor pool and create descriptor tables
 	XUSG_N_RETURN(createDescriptorTables(), false);
-	const auto& descriptorPool = m_descriptorTableCache->GetDescriptorPool(CBV_SRV_UAV_POOL);
+	const auto& descriptorPool = m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL);
 
 	// Set instance
 	float* const pTransform[] = { reinterpret_cast<float*>(&m_world) };

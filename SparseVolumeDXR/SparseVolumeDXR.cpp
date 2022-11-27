@@ -351,9 +351,9 @@ void SparseVolumeDXR::PopulateCommandList()
 	const auto pCommandList = m_commandList.get();
 	XUSG_N_RETURN(pCommandList->Reset(pCommandAllocator, nullptr), ThrowIfFailed(E_FAIL));
 
-	// Bind the descriptor pool
-	const DescriptorPool descriptorPools[] = { m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL) };
-	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
+	// Bind the descriptor heap
+	const auto descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
+	pCommandList->SetDescriptorHeaps(1, &descriptorHeap);
 
 	// Set resource barrier
 	ResourceBarrier barrier;

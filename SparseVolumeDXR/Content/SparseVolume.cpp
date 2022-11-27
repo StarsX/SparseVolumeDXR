@@ -173,9 +173,6 @@ void SparseVolume::Render(RayTracing::CommandList* pCommandList, uint8_t frameIn
 void SparseVolume::RenderDXR(RayTracing::CommandList* pCommandList,
 	uint8_t frameIndex, RenderTarget* pDst, const Descriptor& dsv)
 {
-	const DescriptorPool descriptorPools[] = { m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL) };
-	pCommandList->SetDescriptorPools(static_cast<uint32_t>(size(descriptorPools)), descriptorPools);
-
 	depthPeel(pCommandList, frameIndex, dsv);
 	rayTrace(pCommandList, frameIndex);
 
@@ -411,7 +408,7 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 
 	// Get descriptor pool and create descriptor tables
 	XUSG_N_RETURN(createDescriptorTables(), false);
-	const auto& descriptorPool = m_descriptorTableLib->GetDescriptorPool(CBV_SRV_UAV_POOL);
+	const auto& descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
 	// Set instance
 	float* const pTransform[] = { reinterpret_cast<float*>(&m_world) };
@@ -420,10 +417,10 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	TopLevelAS::SetInstances(pDevice, m_instances.get(), 1, ppBottomLevelAS, pTransform);
 
 	// Build bottom level ASs
-	m_bottomLevelAS->Build(pCommandList, m_scratch.get(), descriptorPool);
+	m_bottomLevelAS->Build(pCommandList, m_scratch.get(), descriptorHeap);
 
 	// Build top level AS
-	m_topLevelAS->Build(pCommandList, m_scratch.get(), m_instances.get(), descriptorPool);
+	m_topLevelAS->Build(pCommandList, m_scratch.get(), m_instances.get(), descriptorHeap);
 
 	// Set resource barriers
 	ResourceBarrier barriers[2];

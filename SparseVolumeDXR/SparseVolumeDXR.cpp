@@ -11,6 +11,7 @@
 
 #include "SharedConst.h"
 #include "SparseVolumeDXR.h"
+#include "stb_image_write.h"
 
 using namespace std;
 using namespace XUSG;
@@ -29,7 +30,8 @@ SparseVolumeDXR::SparseVolumeDXR(uint32_t width, uint32_t height, std::wstring n
 	m_pausing(false),
 	m_tracking(false),
 	m_meshFileName("Assets/bunny.obj"),
-	m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f)
+	m_meshPosScale(0.0f, 0.0f, 0.0f, 1.0f),
+	m_screenShot(0)
 {
 #if defined (_DEBUG)
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
@@ -245,6 +247,9 @@ void SparseVolumeDXR::OnKeyUp(uint8_t key)
 	case VK_F1:
 		m_showFPS = !m_showFPS;
 		break;
+	case VK_F11:
+		m_screenShot = 1;
+		break;
 	case 'R':
 		m_useRayTracing = !m_useRayTracing && m_isDxrSupported;
 		break;
@@ -370,12 +375,21 @@ void SparseVolumeDXR::PopulateCommandList()
 	pCommandList->ClearDepthStencilView(m_lsDepth->GetDSV(), ClearFlag::DEPTH, 1.0f);
 
 	// Voxelizer rendering
-	if (m_useRayTracing) m_sparseVolume->RenderDXR(pCommandList, m_frameIndex, m_renderTargets[m_frameIndex].get(), m_depth->GetDSV());
-	else m_sparseVolume->Render(pCommandList, m_frameIndex, m_renderTargets[m_frameIndex]->GetRTV(), m_depth->GetDSV(), m_lsDepth->GetDSV());
+	const auto pRenderTarget = m_renderTargets[m_frameIndex].get();
+	if (m_useRayTracing) m_sparseVolume->RenderDXR(pCommandList, m_frameIndex, pRenderTarget, m_depth->GetDSV());
+	else m_sparseVolume->Render(pCommandList, m_frameIndex, pRenderTarget->GetRTV(), m_depth->GetDSV(), m_lsDepth->GetDSV());
 
 	// Indicate that the back buffer will now be used to present.
-	const auto numBarriers = m_renderTargets[m_frameIndex]->SetBarrier(&barrier, ResourceState::PRESENT);
+	const auto numBarriers = pRenderTarget->SetBarrier(&barrier, ResourceState::PRESENT);
 	pCommandList->Barrier(numBarriers, &barrier);
+
+	// Screen-shot helper
+	if (m_screenShot == 1)
+	{
+		if (!m_readBuffer) m_readBuffer = Buffer::MakeUnique();
+		pRenderTarget->ReadBack(pCommandList, m_readBuffer.get(), &m_rowPitch);
+		m_screenShot = 2;
+	}
 
 	XUSG_N_RETURN(pCommandList->Close(), ThrowIfFailed(E_FAIL));
 }
@@ -410,6 +424,43 @@ void SparseVolumeDXR::MoveToNextFrame()
 
 	// Set the fence value for the next frame.
 	m_fenceValues[m_frameIndex] = currentFenceValue + 1;
+
+	// Screen-shot helper
+	if (m_screenShot)
+	{
+		if (m_screenShot > FrameCount)
+		{
+			char timeStr[15];
+			tm dateTime;
+			const auto now = time(nullptr);
+			if (!localtime_s(&dateTime, &now) && strftime(timeStr, sizeof(timeStr), "%Y%m%d%H%M%S", &dateTime))
+				SaveImage((string("SparseVolumeDXR_") + timeStr + ".png").c_str(), m_readBuffer.get(), m_width, m_height, m_rowPitch);
+			m_screenShot = 0;
+		}
+		else ++m_screenShot;
+	}
+}
+
+void SparseVolumeDXR::SaveImage(char const* fileName, Buffer* imageBuffer, uint32_t w, uint32_t h, uint32_t rowPitch, uint8_t comp)
+{
+	assert(comp == 3 || comp == 4);
+	const auto pData = static_cast<uint8_t*>(imageBuffer->Map(nullptr));
+
+	//stbi_write_png_compression_level = 1024;
+	vector<uint8_t> imageData(comp * w * h);
+	const auto sw = rowPitch / 4;
+	for (auto i = 0u; i < h; ++i)
+		for (auto j = 0u; j < w; ++j)
+		{
+			const auto s = sw * i + j;
+			const auto d = w * i + j;
+			for (uint8_t k = 0; k < comp; ++k)
+				imageData[comp * d + k] = pData[4 * s + k];
+		}
+
+	stbi_write_png(fileName, w, h, comp, imageData.data(), 0);
+
+	m_readBuffer->Unmap();
 }
 
 double SparseVolumeDXR::CalculateFrameStats(float* pTimeStep)
@@ -434,7 +485,10 @@ double SparseVolumeDXR::CalculateFrameStats(float* pTimeStep)
 		windowText << L"    fps: ";
 		if (m_showFPS) windowText << setprecision(2) << fixed << fps;
 		else windowText << L"[F1]";
+
 		windowText << L"    [R] " << (m_useRayTracing ? "Ray tracing" : "Shadow map array");
+		windowText << L"    [F11] screen shot";
+
 		SetCustomWindowText(windowText.str().c_str());
 	}
 

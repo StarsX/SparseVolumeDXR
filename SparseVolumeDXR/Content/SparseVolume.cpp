@@ -32,7 +32,6 @@ SparseVolume::SparseVolume() :
 	m_instances()
 {
 	m_shaderLib = ShaderLib::MakeUnique();
-	AccelerationStructure::SetUAVCount(2);
 }
 
 SparseVolume::~SparseVolume()
@@ -68,8 +67,12 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, const DescriptorT
 	XUSG_N_RETURN(createPipelines(rtFormat, dsFormat), false);
 
 	// Extract boundary
-	const auto center = objLoader.GetCenter();
-	m_bound = XMFLOAT4(center.x, center.y, center.z, objLoader.GetRadius());
+	const auto& aabb = objLoader.GetAABB();
+	const XMFLOAT3 ext(aabb.Max.x - aabb.Min.x, aabb.Max.y - aabb.Min.y, aabb.Max.z - aabb.Min.z);
+	m_bound.x = (aabb.Max.x + aabb.Min.x) / 2.0f;
+	m_bound.y = (aabb.Max.y + aabb.Min.y) / 2.0f;
+	m_bound.z = (aabb.Max.z + aabb.Min.z) / 2.0f;
+	m_bound.w = (max)(ext.x, (max)(ext.y, ext.z)) / 2.0f;
 
 	// Create output grids and build acceleration structures
 	m_depthKBuffer = Texture2D::MakeUnique();
@@ -313,15 +316,14 @@ bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 	if (m_useRayTracing)
 	{
 		XUSG_N_RETURN(m_shaderLib->CreateShader(Shader::Stage::CS, 0, L"SparseRayCast.cso"), false);
-		const void* shaders[] = { RaygenShaderName, AnyHitShaderName, MissShaderName };
+		const wchar_t* shaderNames[] = { RaygenShaderName, AnyHitShaderName, MissShaderName };
 
 		const auto state = RayTracing::State::MakeUnique();
 		state->SetShaderLibrary(0, m_shaderLib->GetShader(Shader::Stage::CS, 0),
-			static_cast<uint32_t>(size(shaders)), shaders);
+			static_cast<uint32_t>(size(shaderNames)), shaderNames);
 		state->SetHitGroup(0, HitGroupName, nullptr, AnyHitShaderName);
 		state->SetShaderConfig(sizeof(float), sizeof(XMFLOAT2));
-		state->SetLocalPipelineLayout(0, m_pipelineLayouts[RAY_GEN_LAYOUT],
-			1, reinterpret_cast<const void**>(&RaygenShaderName));
+		state->SetLocalPipelineLayout(0, m_pipelineLayouts[RAY_GEN_LAYOUT],	1, &RaygenShaderName);
 		state->SetGlobalPipelineLayout(m_pipelineLayouts[GLOBAL_LAYOUT]);
 		state->SetMaxRecursionDepth(1);
 		XUSG_X_RETURN(m_pipelines[RAY_TRACING], state->GetPipeline(m_rayTracingPipelineLib.get(), L"SparseRayCastDXR"), false);
@@ -335,7 +337,7 @@ bool SparseVolume::createDescriptorTables()
 	// Acceleration structure UAVs
 	if (m_useRayTracing)
 	{
-		const Descriptor descriptors[] = { m_bottomLevelAS->GetResult()->GetUAV(), m_topLevelAS->GetResult()->GetUAV() };
+		const Descriptor descriptors[] = { m_bottomLevelAS->GetResource()->GetUAV(), m_topLevelAS->GetResource()->GetUAV() };
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
 		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
 		const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
@@ -573,5 +575,5 @@ void SparseVolume::rayTrace(RayTracing::CommandList* pCommandList, uint8_t frame
 
 	// Fallback layer has no depth
 	pCommandList->DispatchRays(m_pipelines[RAY_TRACING], (uint32_t)m_viewport.x, (uint32_t)m_viewport.y, 1,
-		m_hitGroupShaderTable.get(), m_missShaderTable.get(), m_rayGenShaderTables[frameIndex].get());
+		m_rayGenShaderTables[frameIndex].get(), m_hitGroupShaderTable.get(), m_missShaderTable.get());
 }

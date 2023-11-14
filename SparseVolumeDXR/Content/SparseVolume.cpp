@@ -392,15 +392,18 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	BottomLevelAS::SetTriangleGeometries(*pGeometry, 1, Format::R32G32B32_FLOAT,
 		&m_vertexBuffer->GetVBV(), &m_indexBuffer->GetIBV(), &geometryFlags);
 
-	// Descriptor index in descriptor pool
-	const auto bottomLevelASIndex = 0u;
-	const auto topLevelASIndex = bottomLevelASIndex + 1;
-
 	// Prebuild
 	m_bottomLevelAS = BottomLevelAS::MakeUnique();
 	m_topLevelAS = TopLevelAS::MakeUnique();
-	XUSG_N_RETURN(m_bottomLevelAS->PreBuild(pDevice, 1, *pGeometry, bottomLevelASIndex), false);
-	XUSG_N_RETURN(m_topLevelAS->PreBuild(pDevice, 1, topLevelASIndex), false);
+	XUSG_N_RETURN(m_bottomLevelAS->PreBuild(pDevice, 1, *pGeometry), false);
+	XUSG_N_RETURN(m_topLevelAS->PreBuild(pDevice, 1), false);
+
+	// Allocate AS buffers
+	// Descriptor indices in the descriptor heap
+	const auto bottomLevelASIndex = 0u;
+	const auto topLevelASIndex = bottomLevelASIndex + 1;
+	XUSG_N_RETURN(m_bottomLevelAS->Allocate(pDevice, bottomLevelASIndex), false);
+	XUSG_N_RETURN(m_topLevelAS->Allocate(pDevice, topLevelASIndex), false);
 
 	// Create scratch buffer
 	auto scratchSize = m_topLevelAS->GetScratchDataMaxSize();
@@ -419,7 +422,10 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	TopLevelAS::SetInstances(pDevice, m_instances.get(), 1, ppBottomLevelAS, pTransform);
 
 	// Build bottom level ASs
-	m_bottomLevelAS->Build(pCommandList, m_scratch.get(), descriptorHeap);
+	m_bottomLevelAS->Build(pCommandList, m_scratch.get());
+
+	const ResourceBarrier barrier = { nullptr, ResourceState::UNORDERED_ACCESS };
+	pCommandList->Barrier(1, &barrier);
 
 	// Build top level AS
 	m_topLevelAS->Build(pCommandList, m_scratch.get(), m_instances.get(), descriptorHeap);

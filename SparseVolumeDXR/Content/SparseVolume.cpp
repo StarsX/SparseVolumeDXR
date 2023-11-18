@@ -395,8 +395,8 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	// Prebuild
 	m_bottomLevelAS = BottomLevelAS::MakeUnique();
 	m_topLevelAS = TopLevelAS::MakeUnique();
-	XUSG_N_RETURN(m_bottomLevelAS->PreBuild(pDevice, 1, *pGeometry), false);
-	XUSG_N_RETURN(m_topLevelAS->PreBuild(pDevice, 1), false);
+	XUSG_N_RETURN(m_bottomLevelAS->Prebuild(pDevice, 1, *pGeometry), false);
+	XUSG_N_RETURN(m_topLevelAS->Prebuild(pDevice, 1), false);
 
 	// Allocate AS buffers
 	// Descriptor indices in the descriptor heap

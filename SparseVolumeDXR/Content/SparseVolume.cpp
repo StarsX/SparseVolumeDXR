@@ -61,11 +61,6 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, const DescriptorT
 	XUSG_N_RETURN(createVB(pCommandList, objLoader.GetNumVertices(), objLoader.GetVertexStride(), objLoader.GetVertices(), uploaders), false);
 	XUSG_N_RETURN(createIB(pCommandList, objLoader.GetNumIndices(), objLoader.GetIndices(), uploaders), false);
 
-	// Create pipelines
-	XUSG_N_RETURN(createInputLayout(), false);
-	XUSG_N_RETURN(createPipelineLayouts(pDevice), false);
-	XUSG_N_RETURN(createPipelines(rtFormat, dsFormat), false);
-
 	// Extract boundary
 	const auto& aabb = objLoader.GetAABB();
 	const XMFLOAT3 ext(aabb.Max.x - aabb.Min.x, aabb.Max.y - aabb.Min.y, aabb.Max.z - aabb.Min.z);
@@ -105,12 +100,23 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, const DescriptorT
 
 	if (m_useRayTracing)
 	{
+		// Build ASes, create pipelines, and build shader tables
 		XUSG_N_RETURN(buildAccelerationStructures(pCommandList, pGeometry), false);
+		XUSG_N_RETURN(createInputLayout(), false);
+		XUSG_N_RETURN(createPipelineLayouts(pDevice), false);
+		XUSG_N_RETURN(createPipelines(rtFormat, dsFormat), false);
 		XUSG_N_RETURN(buildShaderTables(pDevice), false);
 	}
-	else createDescriptorTables();
-
-	return true;
+	else
+	{
+		// Create pipelines
+		XUSG_N_RETURN(createInputLayout(), false);
+		XUSG_N_RETURN(createPipelineLayouts(pDevice), false);
+		XUSG_N_RETURN(createPipelines(rtFormat, dsFormat), false);
+	}
+	
+	// Create descriptor tables
+	return createDescriptorTables();;
 }
 
 void SparseVolume::UpdateFrame(const RayTracing::Device* pDevice, uint8_t frameIndex, CXMMATRIX viewProj)
@@ -334,17 +340,7 @@ bool SparseVolume::createPipelines(Format rtFormat, Format dsFormat)
 
 bool SparseVolume::createDescriptorTables()
 {
-	// Acceleration structure UAVs
-	if (m_useRayTracing)
-	{
-		const Descriptor descriptors[] = { m_bottomLevelAS->GetResource()->GetUAV(), m_topLevelAS->GetResource()->GetUAV() };
-		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
-		descriptorTable->SetDescriptors(0, static_cast<uint32_t>(size(descriptors)), descriptors);
-		const auto asTable = descriptorTable->GetCbvSrvUavTable(m_descriptorTableLib.get());
-		XUSG_N_RETURN(asTable, false);
-	}
-
-	// Other UAVs
+	// K-buffer and output UAVs
 	{
 		// Get UAV
 		const auto descriptorTable = Util::DescriptorTable::MakeUnique();
@@ -399,25 +395,18 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	XUSG_N_RETURN(m_topLevelAS->Prebuild(pDevice, 1), false);
 
 	// Allocate AS buffers
-	// Descriptor indices in the descriptor heap
-	const auto bottomLevelASIndex = 0u;
-	const auto topLevelASIndex = bottomLevelASIndex + 1;
-	XUSG_N_RETURN(m_bottomLevelAS->Allocate(pDevice, bottomLevelASIndex), false);
-	XUSG_N_RETURN(m_topLevelAS->Allocate(pDevice, topLevelASIndex), false);
+	XUSG_N_RETURN(m_bottomLevelAS->Allocate(pDevice, m_descriptorTableLib.get()), false);
+	XUSG_N_RETURN(m_topLevelAS->Allocate(pDevice, m_descriptorTableLib.get()), false);
 
 	// Create scratch buffer
-	auto scratchSize = m_topLevelAS->GetScratchDataMaxSize();
-	scratchSize = (max)(m_bottomLevelAS->GetScratchDataMaxSize(), scratchSize);
-	m_scratch = Resource::MakeUnique();
+	auto scratchSize = m_topLevelAS->GetScratchDataByteSize();
+	scratchSize = (max)(m_bottomLevelAS->GetScratchDataByteSize(), scratchSize);
+	m_scratch = Buffer::MakeUnique();
 	XUSG_N_RETURN(AccelerationStructure::AllocateUAVBuffer(pDevice, m_scratch.get(), scratchSize), false);
-
-	// Get descriptor pool and create descriptor tables
-	XUSG_N_RETURN(createDescriptorTables(), false);
-	const auto& descriptorHeap = m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP);
 
 	// Set instance
 	float* const pTransform[] = { reinterpret_cast<float*>(&m_world) };
-	m_instances = Resource::MakeUnique();
+	m_instances = Buffer::MakeUnique();
 	const BottomLevelAS* ppBottomLevelAS[] = { m_bottomLevelAS.get() };
 	TopLevelAS::SetInstances(pDevice, m_instances.get(), 1, ppBottomLevelAS, pTransform);
 
@@ -428,7 +417,8 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 	pCommandList->Barrier(1, &barrier);
 
 	// Build top level AS
-	m_topLevelAS->Build(pCommandList, m_scratch.get(), m_instances.get(), descriptorHeap);
+	m_topLevelAS->Build(pCommandList, m_scratch.get(), m_instances.get(),
+		m_descriptorTableLib->GetDescriptorHeap(CBV_SRV_UAV_HEAP));
 
 	// Set resource barriers
 	ResourceBarrier barriers[2];
@@ -450,20 +440,20 @@ bool SparseVolume::buildShaderTables(const RayTracing::Device* pDevice)
 		// Ray gen shader table
 		m_rayGenShaderTables[i] = ShaderTable::MakeUnique();
 		XUSG_N_RETURN(m_rayGenShaderTables[i]->Create(pDevice, 1, shaderIDSize + sizeof(RayGenConstants),
-			(L"RayGenShaderTable" + to_wstring(i)).c_str()), false);
-		XUSG_N_RETURN(m_rayGenShaderTables[i]->AddShaderRecord(ShaderRecord::MakeUnique(pDevice,
-			m_pipelines[RAY_TRACING], RaygenShaderName, &rayGenConsts, sizeof(RayGenConstants)).get()), false);
+			MemoryFlag::NONE, (L"RayGenShaderTable" + to_wstring(i)).c_str()), false);
+		m_rayGenShaderTables[i]->AddShaderRecord(ShaderRecord::MakeUnique(pDevice,
+			m_pipelines[RAY_TRACING], RaygenShaderName, &rayGenConsts, sizeof(RayGenConstants)).get());
 	}
 
 	// Hit group shader table
 	m_hitGroupShaderTable = ShaderTable::MakeUnique();
-	XUSG_N_RETURN(m_hitGroupShaderTable->Create(pDevice, 1, shaderIDSize, L"HitGroupShaderTable"), false);
-	XUSG_N_RETURN(m_hitGroupShaderTable->AddShaderRecord(ShaderRecord::MakeUnique(pDevice, m_pipelines[RAY_TRACING], HitGroupName).get()), false);
+	XUSG_N_RETURN(m_hitGroupShaderTable->Create(pDevice, 1, shaderIDSize, MemoryFlag::NONE, L"HitGroupShaderTable"), false);
+	m_hitGroupShaderTable->AddShaderRecord(ShaderRecord::MakeUnique(pDevice, m_pipelines[RAY_TRACING], HitGroupName).get());
 
 	// Miss shader table
 	m_missShaderTable = ShaderTable::MakeUnique();
-	XUSG_N_RETURN(m_missShaderTable->Create(pDevice, 1, shaderIDSize, L"MissShaderTable"), false);
-	XUSG_N_RETURN(m_missShaderTable->AddShaderRecord(ShaderRecord::MakeUnique(pDevice, m_pipelines[RAY_TRACING], MissShaderName).get()), false);
+	XUSG_N_RETURN(m_missShaderTable->Create(pDevice, 1, shaderIDSize, MemoryFlag::NONE, L"MissShaderTable"), false);
+	m_missShaderTable->AddShaderRecord(ShaderRecord::MakeUnique(pDevice, m_pipelines[RAY_TRACING], MissShaderName).get());
 
 	return true;
 }
@@ -580,6 +570,7 @@ void SparseVolume::rayTrace(RayTracing::CommandList* pCommandList, uint8_t frame
 		m_outputView.get(), XMVECTORF32{ 0.0f });
 
 	// Fallback layer has no depth
-	pCommandList->DispatchRays(m_pipelines[RAY_TRACING], (uint32_t)m_viewport.x, (uint32_t)m_viewport.y, 1,
+	pCommandList->SetRayTracingPipeline(m_pipelines[RAY_TRACING]);
+	pCommandList->DispatchRays((uint32_t)m_viewport.x, (uint32_t)m_viewport.y, 1,
 		m_rayGenShaderTables[frameIndex].get(), m_hitGroupShaderTable.get(), m_missShaderTable.get());
 }

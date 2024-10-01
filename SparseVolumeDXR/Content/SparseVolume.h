@@ -118,8 +118,8 @@ protected:
 	XUSG::ConstantBuffer::uptr	m_cbDepthPeelLS;
 	XUSG::ConstantBuffer::uptr	m_cbPerFrame;
 
-	XUSG::Resource::uptr		m_scratch;
-	XUSG::Resource::uptr		m_instances;
+	XUSG::Buffer::uptr			m_scratch;
+	XUSG::Buffer::uptr			m_instances;
 
 	DirectX::XMFLOAT3X4			m_world;
 

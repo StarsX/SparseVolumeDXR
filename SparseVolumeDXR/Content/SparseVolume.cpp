@@ -432,7 +432,7 @@ bool SparseVolume::buildAccelerationStructures(RayTracing::CommandList* pCommand
 bool SparseVolume::buildShaderTables(const RayTracing::Device* pDevice)
 {
 	// Get shader identifiers.
-	const auto shaderIDSize = ShaderRecord::GetShaderIDSize(pDevice);
+	const auto shaderIDSize = ShaderRecord::GetShaderIdentifierSize(pDevice);
 	const RayGenConstants rayGenConsts = {};
 
 	for (uint8_t i = 0; i < FrameCount; ++i)

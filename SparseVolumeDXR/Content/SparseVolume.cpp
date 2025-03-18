@@ -98,11 +98,13 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, const DescriptorT
 	// Initialize world transform
 	XMStoreFloat3x4(&m_world, XMMatrixIdentity());
 
+	// Create input layout and descriptor tables
+	XUSG_N_RETURN(createInputLayout(), false);
+	XUSG_N_RETURN(createDescriptorTables(), false);
 	if (m_useRayTracing)
 	{
 		// Build ASes, create pipelines, and build shader tables
 		XUSG_N_RETURN(buildAccelerationStructures(pCommandList, pGeometry), false);
-		XUSG_N_RETURN(createInputLayout(), false);
 		XUSG_N_RETURN(createPipelineLayouts(pDevice), false);
 		XUSG_N_RETURN(createPipelines(rtFormat, dsFormat), false);
 		XUSG_N_RETURN(buildShaderTables(pDevice), false);
@@ -110,13 +112,11 @@ bool SparseVolume::Init(RayTracing::CommandList* pCommandList, const DescriptorT
 	else
 	{
 		// Create pipelines
-		XUSG_N_RETURN(createInputLayout(), false);
 		XUSG_N_RETURN(createPipelineLayouts(pDevice), false);
 		XUSG_N_RETURN(createPipelines(rtFormat, dsFormat), false);
 	}
-	
-	// Create descriptor tables
-	return createDescriptorTables();;
+
+	return true;
 }
 
 void SparseVolume::UpdateFrame(const RayTracing::Device* pDevice, uint8_t frameIndex, CXMMATRIX viewProj)
